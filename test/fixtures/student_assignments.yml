@@ -1,0 +1,11 @@
+# Read about fixtures at http://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  assignment: one
+  student: one
+  completed: false
+
+two:
+  assignment: two
+  student: two
+  completed: false
