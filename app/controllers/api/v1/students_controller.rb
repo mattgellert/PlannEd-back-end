@@ -43,7 +43,7 @@ class Api::V1::StudentsController < ApplicationController
     instructors = params[:instructors] #will this be returned in the right format?
     instructors.each do |instructor|
       inst = Instructor.find_or_create_by({
-        net_id: instructor[:netId],
+        net_id: instructor[:netid],
         first_name: instructor[:firstName],
         last_name: instructor[:lastName]
       })
@@ -54,7 +54,9 @@ class Api::V1::StudentsController < ApplicationController
     end
 
     if course.assignments.length == 0
-      self.create_mock_data(course, student, student_course) ###UPDATE LATER WITH BETTER DATA
+      student_assignments = self.create_mock_data(course, student, student_course) ###UPDATE LATER WITH BETTER DATA
+    else
+      student_assignments = self.add_student_assignments(course, student_course)
     end
     student_course.parent.assignments.each do |assignment|
       StudentAssignment.create({
@@ -65,37 +67,30 @@ class Api::V1::StudentsController < ApplicationController
     # add other data for calendar later
     render json: {
       studentCourse: {
-        crseId: course.crse_id,
-        subject: course.subject,
-        catalogNbr: course.catalog_nbr,
-        title: course.title,
-        description: course.description,
-        unitsMinimum: course.units_minimum,
-        unitsMaximum: course.units_maximum,
-        sessionBeginDt: course.session_begin_dt,
-        sessionEndDt: course.session_end_dt
+        studentCourseId: student_course.id,
+        section: student_course.section,
+        title: student_course.parent.title,
+        timeStart: student_course.time_start,
+        timeEnd: student_course.time_end,
+        pattern: student_course.pattern,
+        completed: student_course.completed,
+        facilityDescr: student_course.facility_descr,
+        facilityDescrShort: student_course.facility_descr_short,
+        subject: student_course.parent.subject,
+        catalogNbr: student_course.parent.catalog_nbr,
+        description: student_course.parent.description
       },
-      studentAssignments: self.student_assignments(true)
+      studentAssignments: self.format_assignments(student_assignments)
     }
   end
 
-  def student_assignments(helper = false) # works
+  def student_assignments # works
     student_assignments = []
-    if helper
-      student_courses = StudentCourse.all.where(student_id: params[:student][:id])
-      student_courses.each do |student_course|
-        student_course.student_assignments.each do |student_assignment|
-          student_assignments.push(student_assignment)
-        end
-      end
-      return self.format_assignments(student_assignments)
-    else
       student_courses = StudentCourse.all.where(student_id: params[:studentId])
       student_courses.each do |student_course|
         student_assignments.push(self.format_assignments(student_course.student_assignments))
       end
       render json: { studentAssignments: student_assignments.flatten }
-    end
   end
 
   def student_courses
@@ -184,19 +179,29 @@ class Api::V1::StudentsController < ApplicationController
   end
 
   def create_mock_data(course, student, student_course) # works
+    student_assignments = []
     20.times do |i|
       date = DateTime.new(2017,9,i + 1,5)
       pri = Assignment.create({course_id: course.id, title: "#{course.title} assignment #{i}", description: "complete assignment ##{i}", due_date: date})
-      StudentAssignment.create({assignment_id: pri.id, student_course_id: student_course.id})
+      student_assignments.push(StudentAssignment.create({assignment_id: pri.id, student_course_id: student_course.id}))
       if i % 2 == 0
         sub1a = Assignment.create({course_id: course.id, title: "#{course.title} assignment #{i}a", description: "complete assignment ##{i}a", due_date: date - 1, primary_assignment_id: pri.id})
-        StudentAssignment.create({assignment_id: sub1a.id, student_course_id: student_course.id})
+        student_assignments.push(StudentAssignment.create({assignment_id: sub1a.id, student_course_id: student_course.id}))
       end
       if i % 4 == 0
-        sub1a_ = Assignment.create({course_id: course.id, title: "#{course.title} assignment #{i}a_1", description: "complete assignment ##{i}a_1", due_date: date - 2, primary_assignment_id: sub1.id})
-        StudentAssignment.create({assignment_id: sub1a_1.id, student_course_id: student_course.id})
+        sub1a_a = Assignment.create({course_id: course.id, title: "#{course.title} assignment #{i}a_a", description: "complete assignment ##{i}a_a", due_date: date - 2, primary_assignment_id: sub1a.id})
+        student_assignments.push(StudentAssignment.create({assignment_id: sub1a_a.id, student_course_id: student_course.id}))
       end
     end
+    return student_assignments
+  end
+
+  def add_student_assignments(course, student_course)
+    student_assignments = []
+      course.assignments.each do |assignment|
+        student_assignments.push(StudentAssignment.create({assignment_id: assignment.id, student_course_id: student_course.id}))
+      end
+    return student_assignments
   end
 
 
