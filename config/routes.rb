@@ -1,4 +1,5 @@
 Rails.application.routes.draw do
+  resources :student_course_components
   resources :student_course_instructors
   resources :instructors
   namespace :api do

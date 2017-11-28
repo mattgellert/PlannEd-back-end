@@ -40,6 +40,24 @@ class Api::V1::StudentsController < ApplicationController
       facility_descr: params[:studentCourse][:facilityDescr],
       facility_descr_short: params[:studentCourse][:facilityDescrShort]
     })
+    components = []
+    params[:studentCourse][:components].each do |component|
+      student_course_comp = StudentCourseComponent.create({
+        student_course_id: student_course.id,
+        title: component[:title],
+        component: component[:component],
+        section: component[:section],
+        time_start: component[:timeStart],
+        time_end: component[:timeEnd],
+        pattern: component[:pattern],
+        facility_descr: component[:facilityDescr],
+        facility_descr_short: component[:facilityDescrShort]
+      })
+      components.push(student_course_comp)
+    end
+
+    formatted_components = self.format_components(components)
+
     instructors = params[:instructors] #will this be returned in the right format?
     instructors.each do |instructor|
       inst = Instructor.find_or_create_by({
@@ -78,10 +96,30 @@ class Api::V1::StudentsController < ApplicationController
         facilityDescrShort: student_course.facility_descr_short,
         subject: student_course.parent.subject,
         catalogNbr: student_course.parent.catalog_nbr,
-        description: student_course.parent.description
+        description: student_course.parent.description,
+        components: formatted_components
       },
       studentAssignments: self.format_assignments(student_assignments)
     }
+  end
+
+  def format_components(components)
+    formatted_components = []
+    components.each do |component|
+      formatted_components.push({
+        studentComponentId: component.id,
+        studentCourseId: component.student_course_id,
+        title: component.title,
+        component: component.component,
+        section: component.section,
+        timeStart: component.time_start,
+        timeEnd: component.time_end,
+        pattern: component.pattern,
+        facilityDescr: component.facility_descr,
+        facilityDescrShort: component.facility_descr_short
+      })
+    end
+    return formatted_components
   end
 
   def student_assignments # works
@@ -109,7 +147,8 @@ class Api::V1::StudentsController < ApplicationController
           facilityDescrShort: student_course.facility_descr_short,
           subject: student_course.parent.subject,
           catalogNbr: student_course.parent.catalog_nbr,
-          description: student_course.parent.description
+          description: student_course.parent.description,
+          components: self.format_components(student_course.student_course_components)
       })
     end
     render json: { studentCourses: formatted_student_courses }

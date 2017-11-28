@@ -1,0 +1,2 @@
+class StudentCourseComponentsController < ApplicationController
+end

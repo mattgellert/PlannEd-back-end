@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20171123193418) do
+ActiveRecord::Schema.define(version: 20171127234749) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -60,6 +60,21 @@ ActiveRecord::Schema.define(version: 20171123193418) do
     t.index ["student_course_id"], name: "index_student_assignments_on_student_course_id"
   end
 
+  create_table "student_course_components", force: :cascade do |t|
+    t.bigint "student_course_id"
+    t.string "title"
+    t.string "component"
+    t.string "section"
+    t.string "time_start"
+    t.string "time_end"
+    t.string "pattern"
+    t.string "facility_descr"
+    t.string "facility_descr_short"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["student_course_id"], name: "index_student_course_components_on_student_course_id"
+  end
+
   create_table "student_course_instructors", force: :cascade do |t|
     t.bigint "student_course_id"
     t.bigint "instructor_id"
@@ -96,6 +111,7 @@ ActiveRecord::Schema.define(version: 20171123193418) do
   add_foreign_key "assignments", "courses"
   add_foreign_key "student_assignments", "assignments"
   add_foreign_key "student_assignments", "student_courses"
+  add_foreign_key "student_course_components", "student_courses"
   add_foreign_key "student_course_instructors", "instructors"
   add_foreign_key "student_course_instructors", "student_courses"
   add_foreign_key "student_courses", "courses"
