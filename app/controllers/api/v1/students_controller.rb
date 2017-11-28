@@ -156,7 +156,8 @@ class Api::V1::StudentsController < ApplicationController
 
   def complete_assignment
     student_assignment = StudentAssignment.find(params[:studentAssignmentId])
-    student_assignment.completed = true
+    student_assignment.completed = !student_assignment.completed
+    student_assignment.save
     render json: { studentAssignment: self.format_assignments([student_assignment])[0] }
   end
 
