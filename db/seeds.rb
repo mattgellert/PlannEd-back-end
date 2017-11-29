@@ -6,10 +6,10 @@
 #   movies = Movie.create([{ name: 'Star Wars' }, { name: 'Lord of the Rings' }])
 #   Character.create(name: 'Luke', movie: movies.first)
 
-feb1 = DateTime.new(2017,2,1,5)
-feb2 = DateTime.new(2017,2,2,5)
-feb3 = DateTime.new(2017,2,3,5)
-feb4 = DateTime.new(2017,2,4,5)
+feb1 = DateTime.new(2017,12,1,17)
+feb2 = DateTime.new(2017,12,2,17)
+feb3 = DateTime.new(2017,12,3,17)
+feb4 = DateTime.new(2017,12,4,17)
 
 math = Course.create({
   crse_id: 1234,
