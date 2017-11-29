@@ -76,12 +76,12 @@ class Api::V1::StudentsController < ApplicationController
     else
       student_assignments = self.add_student_assignments(course, student_course)
     end
-    student_course.parent.assignments.each do |assignment|
-      StudentAssignment.create({
-          assignment_id: assignment.id,
-          student_course_id: student_course.id
-      })
-    end
+              # student_course.parent.assignments.each do |assignment|
+              #   StudentAssignment.create({
+              #       assignment_id: assignment.id,
+              #       student_course_id: student_course.id
+              #   })
+              # end
     # add other data for calendar later
     render json: {
       studentCourse: {
@@ -124,11 +124,37 @@ class Api::V1::StudentsController < ApplicationController
 
   def student_assignments # works
     student_assignments = []
-      student_courses = StudentCourse.all.where(student_id: params[:studentId])
-      student_courses.each do |student_course|
-        student_assignments.push(self.format_assignments(student_course.student_assignments))
+    student_courses = StudentCourse.all.where(student_id: params[:studentId])
+    student_courses.each do |student_course|
+      student_assignments.push(self.format_assignments(student_course.student_assignments))
+    end
+    render json: { studentAssignments: student_assignments.flatten }
+  end
+
+  def format_assignments(student_assignments) # works
+    formatted_assignments = []
+    assignments_seen = {}
+    student_assignments.each do |student_assignment|
+      if student_assignment.parent.primary_assignment_id && assignments_seen["#{student_assignment.parent.primary_assignment_id}"]
+        assignments_seen["#{student_assignment.id}"] = true
+      else
+        obj = {
+          studentAssignmentId: student_assignment.id,
+          studentCourseId: student_assignment.student_course.id,
+          title: student_assignment.parent.title,
+          description: student_assignment.parent.description,
+          dueDate: student_assignment.parent.due_date,
+          completed: student_assignment.completed,
+          subAssignments: [],
+          hasSubAssignments: student_assignment.parent.sub_assignments.length > 0 ? true : false,
+          parentStudentAssignmentId: StudentAssignment.find_by(assignment_id: student_assignment.parent.primary_assignment_id, student_course_id: student_assignment.student_course_id) ? StudentAssignment.find_by(assignment_id: student_assignment.parent.primary_assignment_id, student_course_id: student_assignment.student_course_id).id : nil
+        }
+        formatted_assignments.push(obj)
+        assignments_seen["#{student_assignment.id}"] = true
       end
-      render json: { studentAssignments: student_assignments.flatten }
+    end
+    # byebug
+    return formatted_assignments
   end
 
   def student_courses
@@ -194,60 +220,30 @@ class Api::V1::StudentsController < ApplicationController
     }
   end
 
-  def format_assignments(student_assignments) # works
-    formatted_assignments = []
-    assignments_seen = {}
-    student_assignments.each do |student_assignment|
-        if student_assignment.parent.primary_assignment_id && assignments_seen["#{student_assignment.parent.primary_assignment_id}"]
-          byebug
-          assignments_seen["#{student_assignment.id}"] = true
-          # do nothing
-        else
-          byebug
-          obj = {
-            studentAssignmentId: student_assignment.id,
-            studentCourseId: student_assignment.student_course.id,
-            title: student_assignment.parent.title,
-            description: student_assignment.parent.description,
-            dueDate: student_assignment.parent.due_date,
-            completed: student_assignment.completed,
-            subAssignments: [],
-            hasSubAssignments: student_assignment.parent.sub_assignments.length > 0 ? true : false,
-            parentStudentAssignmentId: StudentAssignment.find_by(assignment_id: student_assignment.parent.primary_assignment_id, student_course_id: student_assignment.student_course_id) ? StudentAssignment.find_by(assignment_id: student_assignment.parent.primary_assignment_id, student_course_id: student_assignment.student_course_id).id : nil
-          }
-          formatted_assignments.push(obj)
-          assignments_seen["#{student_assignment.id}"] = true
-        end
-    end
-    # not hitting this on add new course then push to assignments page
-    return formatted_assignments
-  end
-
   def create_mock_data(course, student, student_course) # works
     student_assignments = []
-    10.times do |i|
+    byebug
+    5.times do |i|
       date = DateTime.new(2017,12,i + 1,5)
       pri = Assignment.create({course_id: course.id, title: "#{course.title} assignment #{i+1}", description: "complete assignment ##{i+1}", due_date: date})
       student_assignments.push(StudentAssignment.create({assignment_id: pri.id, student_course_id: student_course.id}))
-      if i % 2 == 0
-        sub1a = Assignment.create({course_id: course.id, title: "#{course.title} assignment #{i+1}a", description: "complete assignment ##{i+1}a", due_date: date - 1, primary_assignment_id: pri.id})
-        student_assignments.push(StudentAssignment.create({assignment_id: sub1a.id, student_course_id: student_course.id}))
-      end
-      if i % 4 == 0
-        sub1a_a = Assignment.create({course_id: course.id, title: "#{course.title} assignment #{i+1}a_a", description: "complete assignment ##{i+1}a_a", due_date: date - 2, primary_assignment_id: sub1a.id})
-        student_assignments.push(StudentAssignment.create({assignment_id: sub1a_a.id, student_course_id: student_course.id}))
-      end
+      # if (i+1) % 2 == 0
+      #   sub1a = Assignment.create({course_id: course.id, title: "#{course.title} assignment #{i+1}a", description: "complete assignment ##{i+1}a", due_date: date - 1, primary_assignment_id: pri.id})
+      #   student_assignments.push(StudentAssignment.create({assignment_id: sub1a.id, student_course_id: student_course.id}))
+      # end
+      # if (i+1) % 4 == 0
+      #   sub1a_a = Assignment.create({course_id: course.id, title: "#{course.title} assignment #{i+1}a_a", description: "complete assignment ##{i+1}a_a", due_date: date - 2, primary_assignment_id: sub1a.id})
+      #   student_assignments.push(StudentAssignment.create({assignment_id: sub1a_a.id, student_course_id: student_course.id}))
+      # end
     end
     byebug
     return student_assignments
   end
 
   def add_student_assignments(course, student_course)
-    student_assignments = []
-      course.assignments.each do |assignment|
-        student_assignments.push(StudentAssignment.create({assignment_id: assignment.id, student_course_id: student_course.id}))
-      end
-    return student_assignments
+    student_assignments = course.assignments.map do |assignment|
+      StudentAssignment.create({assignment_id: assignment.id, student_course_id: student_course.id})
+    end
   end
 
 
