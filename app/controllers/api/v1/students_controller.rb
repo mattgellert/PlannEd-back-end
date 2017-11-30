@@ -147,6 +147,7 @@ class Api::V1::StudentsController < ApplicationController
           completed: student_assignment.completed,
           subAssignments: [],
           hasSubAssignments: student_assignment.parent.sub_assignments.length > 0 ? true : false,
+          selectedNow: false,
           parentStudentAssignmentId: StudentAssignment.find_by(assignment_id: student_assignment.parent.primary_assignment_id, student_course_id: student_assignment.student_course_id) ? StudentAssignment.find_by(assignment_id: student_assignment.parent.primary_assignment_id, student_course_id: student_assignment.student_course_id).id : nil
         }
         formatted_assignments.push(obj)
@@ -220,23 +221,21 @@ class Api::V1::StudentsController < ApplicationController
     }
   end
 
-  def create_mock_data(course, student, student_course) # works
+  def create_mock_data(course, student, student_course)
     student_assignments = []
-    byebug
     5.times do |i|
       date = DateTime.new(2017,12,i + 1,5)
       pri = Assignment.create({course_id: course.id, title: "#{course.title} assignment #{i+1}", description: "complete assignment ##{i+1}", due_date: date})
       student_assignments.push(StudentAssignment.create({assignment_id: pri.id, student_course_id: student_course.id}))
-      # if (i+1) % 2 == 0
-      #   sub1a = Assignment.create({course_id: course.id, title: "#{course.title} assignment #{i+1}a", description: "complete assignment ##{i+1}a", due_date: date - 1, primary_assignment_id: pri.id})
-      #   student_assignments.push(StudentAssignment.create({assignment_id: sub1a.id, student_course_id: student_course.id}))
-      # end
-      # if (i+1) % 4 == 0
-      #   sub1a_a = Assignment.create({course_id: course.id, title: "#{course.title} assignment #{i+1}a_a", description: "complete assignment ##{i+1}a_a", due_date: date - 2, primary_assignment_id: sub1a.id})
-      #   student_assignments.push(StudentAssignment.create({assignment_id: sub1a_a.id, student_course_id: student_course.id}))
-      # end
+      if (i+1) % 2 == 0
+        sub1a = Assignment.create({course_id: course.id, title: "#{course.title} assignment #{i+1}a", description: "complete assignment ##{i+1}a", due_date: date - 1, primary_assignment_id: pri.id})
+        student_assignments.push(StudentAssignment.create({assignment_id: sub1a.id, student_course_id: student_course.id}))
+      end
+      if (i+1) % 4 == 0
+        sub1a_a = Assignment.create({course_id: course.id, title: "#{course.title} assignment #{i+1}a_a", description: "complete assignment ##{i+1}a_a", due_date: date - 2, primary_assignment_id: sub1a.id})
+        student_assignments.push(StudentAssignment.create({assignment_id: sub1a_a.id, student_course_id: student_course.id}))
+      end
     end
-    byebug
     return student_assignments
   end
 
