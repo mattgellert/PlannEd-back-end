@@ -131,10 +131,25 @@ class Api::V1::StudentsController < ApplicationController
     render json: { studentAssignments: student_assignments.flatten }
   end
 
+  def is_completed_parent(student_assignment)
+    student_assignment.parent.sub_assignments.each do |sub_ass|
+      student_sub_ass = StudentAssignment.find_by(assignment_id: sub_ass.id, student_course_id: student_assignment.student_course.id)
+      if self.is_completed_parent(student_sub_ass)
+        return true
+      end
+    end
+    return student_assignment.completed
+  end
+
   def format_assignments(student_assignments) # works
     formatted_assignments = []
     assignments_seen = {}
     student_assignments.each do |student_assignment|
+      completed = student_assignment.parent.sub_assignments.length > 0 ? self.is_completed_parent(student_assignment) : student_assignment.completed
+      if completed != student_assignment.completed
+        student_assignment.completed = completed
+        student_assignment.save
+      end
       if student_assignment.parent.primary_assignment_id && assignments_seen["#{student_assignment.parent.primary_assignment_id}"]
         assignments_seen["#{student_assignment.id}"] = true
       else
@@ -157,6 +172,8 @@ class Api::V1::StudentsController < ApplicationController
     # byebug
     return formatted_assignments
   end
+
+
 
   def student_courses
     student_courses = StudentCourse.all.where(student_id: params[:studentId])
@@ -217,9 +234,11 @@ class Api::V1::StudentsController < ApplicationController
     end
     render json: {
       parentAssignmentId: params[:studentAssignmentId],
-      subAssignments: self.format_assignments(student_sub_assignments)
+      subAssignments: self.format_assignments(student_sub_assignments),
+      hasParent: student_assignment.parent.primary_assignment_id,
     }
   end
+
 
   def create_mock_data(course, student, student_course)
     student_assignments = []
@@ -230,10 +249,14 @@ class Api::V1::StudentsController < ApplicationController
       if (i+1) % 2 == 0
         sub1a = Assignment.create({course_id: course.id, title: "#{course.title} assignment #{i+1}a", description: "complete assignment ##{i+1}a", due_date: date - 1, primary_assignment_id: pri.id})
         student_assignments.push(StudentAssignment.create({assignment_id: sub1a.id, student_course_id: student_course.id}))
+        sub1b = Assignment.create({course_id: course.id, title: "#{course.title} assignment #{i+1}b", description: "complete assignment ##{i+1}b", due_date: date - 1, primary_assignment_id: pri.id})
+        student_assignments.push(StudentAssignment.create({assignment_id: sub1b.id, student_course_id: student_course.id}))
       end
       if (i+1) % 4 == 0
         sub1a_a = Assignment.create({course_id: course.id, title: "#{course.title} assignment #{i+1}a_a", description: "complete assignment ##{i+1}a_a", due_date: date - 2, primary_assignment_id: sub1a.id})
         student_assignments.push(StudentAssignment.create({assignment_id: sub1a_a.id, student_course_id: student_course.id}))
+        sub1b_a = Assignment.create({course_id: course.id, title: "#{course.title} assignment #{i+1}b_a", description: "complete assignment ##{i+1}b_a", due_date: date - 2, primary_assignment_id: sub1b.id})
+        student_assignments.push(StudentAssignment.create({assignment_id: sub1b_a.id, student_course_id: student_course.id}))
       end
     end
     return student_assignments
