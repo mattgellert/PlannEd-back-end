@@ -128,6 +128,7 @@ class Api::V1::StudentsController < ApplicationController
     student_courses.each do |student_course|
       student_assignments.push(self.format_assignments(student_course.student_assignments))
     end
+    byebug
     render json: { studentAssignments: student_assignments.flatten }
   end
 
@@ -147,8 +148,13 @@ class Api::V1::StudentsController < ApplicationController
   def format_assignments(student_assignments) # works
     formatted_assignments = []
     assignments_seen = {}
+    completed = false
     student_assignments.each do |student_assignment|
-      completed = student_assignment.parent.sub_assignments.length > 0 ? self.is_completed_parent(student_assignment, student_assignment.parent.sub_assignments.length) : student_assignment.completed
+      if student_assignment.parent.sub_assignments.length > 0
+        completed = self.is_completed_parent(student_assignment, student_assignment.parent.sub_assignments.length)
+      else
+        completed = student_assignment.completed
+      end
       if completed != student_assignment.completed
         student_assignment.completed = completed
         student_assignment.save
