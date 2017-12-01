@@ -128,7 +128,7 @@ class Api::V1::StudentsController < ApplicationController
     student_courses.each do |student_course|
       student_assignments.push(self.format_assignments(student_course.student_assignments))
     end
-    byebug
+
     render json: { studentAssignments: student_assignments.flatten }
   end
 
@@ -181,6 +181,36 @@ class Api::V1::StudentsController < ApplicationController
     return formatted_assignments
   end
 
+  def format_sub_assignments(student_assignments)
+    formatted_assignments = []
+    completed = false
+    student_assignments.each do |student_assignment|
+      if student_assignment.parent.sub_assignments.length > 0
+        completed = self.is_completed_parent(student_assignment, student_assignment.parent.sub_assignments.length)
+      else
+        completed = student_assignment.completed
+      end
+      if completed != student_assignment.completed
+        student_assignment.completed = completed
+        student_assignment.save
+      end
+        obj = {
+          studentAssignmentId: student_assignment.id,
+          studentCourseId: student_assignment.student_course.id,
+          title: student_assignment.parent.title,
+          description: student_assignment.parent.description,
+          dueDate: student_assignment.parent.due_date,
+          completed: student_assignment.completed,
+          subAssignments: [],
+          hasSubAssignments: student_assignment.parent.sub_assignments.length > 0 ? true : false,
+          selectedNow: false,
+          parentStudentAssignmentId: StudentAssignment.find_by(assignment_id: student_assignment.parent.primary_assignment_id, student_course_id: student_assignment.student_course_id) ? StudentAssignment.find_by(assignment_id: student_assignment.parent.primary_assignment_id, student_course_id: student_assignment.student_course_id).id : nil
+        }
+        formatted_assignments.push(obj)
+    end
+    return formatted_assignments
+  end
+
 
 
   def student_courses
@@ -210,7 +240,19 @@ class Api::V1::StudentsController < ApplicationController
     student_assignment = StudentAssignment.find(params[:studentAssignmentId])
     student_assignment.completed = !student_assignment.completed
     student_assignment.save
-    render json: { studentAssignment: self.format_assignments([student_assignment])[0] }
+    if params[:isSubAssignment]
+      root_assignments = params[:rootAssignmentIds].map { |id| StudentAssignment.find(id) }
+      sub_assignments = params[:subAssignmentIds].map { |id| StudentAssignment.find(id) }
+      sub_assignments.push(student_assignment)
+      ids = params[:rootAssignmentIds].concat(params[:subAssignmentIds])
+      render json: {
+        ids: ids,
+        subAssignments: self.format_sub_assignments(sub_assignments),
+        rootAssignments: self.format_assignments(root_assignments)
+      }
+    else
+      render json: { studentAssignment: self.format_assignments([student_assignment])[0] }
+    end
   end
 
   def complete_course
