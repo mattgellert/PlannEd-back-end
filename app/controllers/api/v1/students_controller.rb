@@ -131,21 +131,24 @@ class Api::V1::StudentsController < ApplicationController
     render json: { studentAssignments: student_assignments.flatten }
   end
 
-  def is_completed_parent(student_assignment)
-    student_assignment.parent.sub_assignments.each do |sub_ass|
-      student_sub_ass = StudentAssignment.find_by(assignment_id: sub_ass.id, student_course_id: student_assignment.student_course.id)
-      if self.is_completed_parent(student_sub_ass)
+  def is_completed_parent(student_assignment, numSubs)
+    student_assignment.parent.sub_assignments.each_with_index do |sub_ass, idx| #is from the class Assignment so need the Student's verions -->
+      student_sub_ass = StudentAssignment.find_by(assignment_id: sub_ass.id, student_course_id: student_assignment.student_course_id)
+      if !self.is_completed_parent(student_sub_ass, 0)
+        return false
+      end
+      if (idx + 1) == numSubs
         return true
       end
     end
-    return student_assignment.completed
+    return (!student_assignment.completed) ? false : true
   end
 
   def format_assignments(student_assignments) # works
     formatted_assignments = []
     assignments_seen = {}
     student_assignments.each do |student_assignment|
-      completed = student_assignment.parent.sub_assignments.length > 0 ? self.is_completed_parent(student_assignment) : student_assignment.completed
+      completed = student_assignment.parent.sub_assignments.length > 0 ? self.is_completed_parent(student_assignment, student_assignment.parent.sub_assignments.length) : student_assignment.completed
       if completed != student_assignment.completed
         student_assignment.completed = completed
         student_assignment.save
@@ -169,7 +172,6 @@ class Api::V1::StudentsController < ApplicationController
         assignments_seen["#{student_assignment.id}"] = true
       end
     end
-    # byebug
     return formatted_assignments
   end
 
