@@ -76,18 +76,14 @@ class Api::V1::StudentsController < ApplicationController
     else
       student_assignments = self.add_student_assignments(course, student_course)
     end
-              # student_course.parent.assignments.each do |assignment|
-              #   StudentAssignment.create({
-              #       assignment_id: assignment.id,
-              #       student_course_id: student_course.id
-              #   })
-              # end
-    # add other data for calendar later
+    # add other assignment data for calendar later
     render json: {
       studentCourse: {
         studentCourseId: student_course.id,
         section: student_course.section,
         title: student_course.parent.title,
+        sessionBeginDt: student_course.parent.session_begin_dt,
+        sessionEndDt: student_course.parent.session_end_dt,
         timeStart: student_course.time_start,
         timeEnd: student_course.time_end,
         pattern: student_course.pattern,
