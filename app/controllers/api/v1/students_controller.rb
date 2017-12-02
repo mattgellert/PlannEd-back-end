@@ -181,7 +181,7 @@ class Api::V1::StudentsController < ApplicationController
     return formatted_assignments
   end
 
-  def format_sub_assignments(student_assignments)
+  def format_assignments_without_filter(student_assignments)
     formatted_assignments = []
     completed = false
     student_assignments.each do |student_assignment|
@@ -247,11 +247,46 @@ class Api::V1::StudentsController < ApplicationController
       ids = params[:rootAssignmentIds].concat(params[:subAssignmentIds])
       render json: {
         ids: ids,
-        subAssignments: self.format_sub_assignments(sub_assignments),
+        subAssignments: self.format_assignments_without_filter(sub_assignments),
         rootAssignments: self.format_assignments(root_assignments)
       }
     else
       render json: { studentAssignment: self.format_assignments([student_assignment])[0] }
+    end
+  end
+
+  def complete_parent_assignment
+    parent_assignment = StudentAssignment.find(params[:studentAssignmentId])
+    @@ids = [parent_assignment.id]
+    parent_assignment.completed = !parent_assignment.completed
+    parent_assignment.save
+    if parent_assignment.completed
+      self.complete_children(parent_assignment)
+      render json: { ids: @@ids, completed: true }
+    else
+      self.incomplete_children(parent_assignment)
+      render json: { ids: @@ids, completed: false }
+    end
+
+  end
+
+  def complete_children(student_assignment)
+    student_assignment.parent.sub_assignments.each_with_index do |sub_ass, idx| #is from the class Assignment so need the Student's verions -->
+      student_sub_ass = StudentAssignment.find_by(assignment_id: sub_ass.id, student_course_id: student_assignment.student_course_id)
+      @@ids.push(student_sub_ass.id)
+      student_sub_ass.completed = true
+      student_sub_ass.save
+      self.complete_children(student_sub_ass)
+    end
+  end
+
+  def incomplete_children(student_assignment)
+    student_assignment.parent.sub_assignments.each_with_index do |sub_ass, idx| #is from the class Assignment so need the Student's verions -->
+      student_sub_ass = StudentAssignment.find_by(assignment_id: sub_ass.id, student_course_id: student_assignment.student_course_id)
+      @@ids.push(student_sub_ass.id)
+      student_sub_ass.completed = false
+      student_sub_ass.save
+      self.complete_children(student_sub_ass)
     end
   end
 
@@ -293,17 +328,17 @@ class Api::V1::StudentsController < ApplicationController
   def create_mock_data(course, student, student_course)
     student_assignments = []
     5.times do |i|
-      date = DateTime.new(2017,12,i + 1,5)
+      date = DateTime.now + 6
       pri = Assignment.create({course_id: course.id, title: "#{course.title} assignment #{i+1}", description: "complete assignment ##{i+1}", due_date: date})
       student_assignments.push(StudentAssignment.create({assignment_id: pri.id, student_course_id: student_course.id}))
       if (i+1) % 2 == 0
-        sub1a = Assignment.create({course_id: course.id, title: "#{course.title} assignment #{i+1}a", description: "complete assignment ##{i+1}a", due_date: date - 1, primary_assignment_id: pri.id})
+        sub1a = Assignment.create({course_id: course.id, title: "#{course.title} assignment #{i+1}a", description: "complete assignment ##{i+1}a", due_date: date - 2, primary_assignment_id: pri.id})
         student_assignments.push(StudentAssignment.create({assignment_id: sub1a.id, student_course_id: student_course.id}))
         sub1b = Assignment.create({course_id: course.id, title: "#{course.title} assignment #{i+1}b", description: "complete assignment ##{i+1}b", due_date: date - 1, primary_assignment_id: pri.id})
         student_assignments.push(StudentAssignment.create({assignment_id: sub1b.id, student_course_id: student_course.id}))
       end
       if (i+1) % 4 == 0
-        sub1a_a = Assignment.create({course_id: course.id, title: "#{course.title} assignment #{i+1}a_a", description: "complete assignment ##{i+1}a_a", due_date: date - 2, primary_assignment_id: sub1a.id})
+        sub1a_a = Assignment.create({course_id: course.id, title: "#{course.title} assignment #{i+1}a_a", description: "complete assignment ##{i+1}a_a", due_date: date - 3, primary_assignment_id: sub1a.id})
         student_assignments.push(StudentAssignment.create({assignment_id: sub1a_a.id, student_course_id: student_course.id}))
         sub1b_a = Assignment.create({course_id: course.id, title: "#{course.title} assignment #{i+1}b_a", description: "complete assignment ##{i+1}b_a", due_date: date - 2, primary_assignment_id: sub1b.id})
         student_assignments.push(StudentAssignment.create({assignment_id: sub1b_a.id, student_course_id: student_course.id}))
@@ -320,3 +355,14 @@ class Api::V1::StudentsController < ApplicationController
 
 
 end
+
+# studentAssignmentId: student_assignment.id,
+# studentCourseId: student_assignment.student_course.id,
+# title: student_assignment.parent.title,
+# description: student_assignment.parent.description,
+# dueDate: student_assignment.parent.due_date,
+# completed: student_assignment.completed,
+# subAssignments: [],
+# hasSubAssignments: student_assignment.parent.sub_assignments.length > 0 ? true : false,
+# selectedNow: false,
+# parentStudentAssignmentId: StudentAssignment.find_by(assignment_id: student_assignment.parent.primary_assignment_id, student_course_id: student_assignment.student_course_id) ? StudentAssignment.find_by(assignment_id: student_assignment.parent.primary_assignment_id, student_course_id: student_assignment.student_course_id).id : nil

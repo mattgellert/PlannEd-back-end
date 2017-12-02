@@ -11,8 +11,10 @@ Rails.application.routes.draw do
       get '/students/student_assignments', to: 'students#student_assignments'
       get '/students/student_courses', to: 'students#student_courses'
       post '/students/complete_assignment', to: 'students#complete_assignment'
+      post '/students/complete_parent_assignment', to: 'students#complete_parent_assignment'
       post '/students/complete_course', to: 'students#complete_course'
       get '/students/get_sub_assignments', to: 'students#get_sub_assignments'
+      # get '/students/upcoming', to: 'students#upcoming_assignments'
     end
   end
 end
