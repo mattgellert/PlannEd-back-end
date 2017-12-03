@@ -1,4 +1,9 @@
 Rails.application.routes.draw do
+  resources :student_course_component_events
+  resources :student_assignment_events
+  resources :student_assignment_due_dates
+  resources :student_course_events
+  resources :events
   resources :student_course_components
   resources :student_course_instructors
   resources :instructors

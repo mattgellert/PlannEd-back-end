@@ -1,0 +1,2 @@
+class StudCourseCompEventsController < ApplicationController
+end

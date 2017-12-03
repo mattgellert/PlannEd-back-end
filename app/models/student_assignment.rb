@@ -2,6 +2,9 @@ class StudentAssignment < ApplicationRecord
   belongs_to :assignment
   belongs_to :student_course
 
+  has_many :student_assignment_events
+  has_many :events, through: :student_assignment_events
+
   def student_course
     StudentCourse.find(self.student_course_id)
   end
