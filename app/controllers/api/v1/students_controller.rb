@@ -159,7 +159,10 @@ class Api::V1::StudentsController < ApplicationController
     StudentCourse.all.where(student_id: studentId).each do |course|
       course.student_assignments.each do |assignment|
         event = Event.create({
-
+          title: "DUE #{assignment.parent.title}",
+          event_type: "assignment",
+          start_date: assignment.parent.due_date,
+          end_date: assignment.parent.due_date
         })
         StudentAssignmentEvent.create({
           event_id: event.id,
@@ -317,17 +320,38 @@ class Api::V1::StudentsController < ApplicationController
   end
 
   def student_assignments # works
+    student_course_dates = []
     student_assignments = []
-
-    ######################################################
-    # student_due_dates = self.get_due_dates(params[:studentId])
-    student_due_dates = []
+    unformatted_assignments = []
     student_courses = StudentCourse.all.where(student_id: params[:studentId])
     student_courses.each do |student_course|
-      student_assignments.push(self.format_assignments(student_course.student_assignments))
+      assignments = student_course.student_assignments
+      unformatted_assignments.push(assignments)
+      student_assignments.push(self.format_assignments(assignments))
+      student_course_dates.push(student_course.events)
     end
 
-    render json: { studentAssignments: student_assignments.flatten, dueDates: student_due_dates }
+    student_course_dates = student_course_dates.flatten.map do |event|
+      this_event = {
+        'title': event.title,
+        'eventType': event.event_type,
+        "startDate": event.start_date,
+        "endDate": event.end_date
+      }
+    end
+
+    student_due_dates = unformatted_assignments.flatten.map do |assignment|
+      event = assignment.events[0]
+      this_event = {
+        'title': event.title,
+        'eventType': event.event_type,
+        "startDate": event.start_date,
+        "endDate": event.end_date
+      }
+    end
+    byebug
+
+    render json: { studentAssignments: student_assignments.flatten, dueDates: student_due_dates, courseDates: student_course_dates }
   end
 
   def is_completed_parent(student_assignment, numSubs)
@@ -531,7 +555,7 @@ class Api::V1::StudentsController < ApplicationController
     session_end = parent.session_end_dt.split("/").map {|t| t.to_i }
 
     beginDt = DateTime.new(session_begin[2], session_begin[0], session_begin[1]).change({ hour: 17 })
-    currDt = beginDt.next_week.advance(:days=>0)
+    currDt = beginDt.next_week.advance(:days=>4)
     endDt = DateTime.new(session_end[2], session_end[0], session_end[1])
     i = 0
 
@@ -541,13 +565,11 @@ class Api::V1::StudentsController < ApplicationController
       if (i+1) % 4 == 0
         sub1a = Assignment.create({course_id: course.id, title: "#{course.title} assignment #{i+1}a", description: "complete assignment ##{i+1}a", due_date: currDt - 2, primary_assignment_id: pri.id})
         student_assignments.push(StudentAssignment.create({assignment_id: sub1a.id, student_course_id: student_course.id}))
-        sub1b = Assignment.create({course_id: course.id, title: "#{course.title} assignment #{i+1}b", description: "complete assignment ##{i+1}b", due_date: currDt - 1, primary_assignment_id: pri.id})
-        student_assignments.push(StudentAssignment.create({assignment_id: sub1b.id, student_course_id: student_course.id}))
       end
       if (i+1) % 8 == 0
         sub1a_a = Assignment.create({course_id: course.id, title: "#{course.title} assignment #{i+1}a_a", description: "complete assignment ##{i+1}a_a", due_date: currDt - 3, primary_assignment_id: sub1a.id})
         student_assignments.push(StudentAssignment.create({assignment_id: sub1a_a.id, student_course_id: student_course.id}))
-        sub1b_a = Assignment.create({course_id: course.id, title: "#{course.title} assignment #{i+1}b_a", description: "complete assignment ##{i+1}b_a", due_date: currDt - 2, primary_assignment_id: sub1b.id})
+        sub1a_b = Assignment.create({course_id: course.id, title: "#{course.title} assignment #{i+1}b_a", description: "complete assignment ##{i+1}a_b", due_date: currDt - 2, primary_assignment_id: sub1a.id})
         student_assignments.push(StudentAssignment.create({assignment_id: sub1b_a.id, student_course_id: student_course.id}))
       end
       currDt = currDt.next_week.advance(:days=>rand(5))
