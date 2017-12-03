@@ -17,6 +17,60 @@ class Api::V1::StudentsController < ApplicationController
     }
   end
 
+  def time_string_to_num(time)
+    num = time.scan(/\d+|\D+/)
+    num.delete_at(1)
+    num[0] = num[2] == "PM" ? (num[0].to_i + 12).to_s : num[0]
+    num.delete_at(2)
+    return num.join(".").to_f
+  end
+
+  def check_for_course_conflicts(student)
+    # get pattern & timeStart/timeEnd of new course
+    new_pattern = params[:studentCourse][:pattern]
+    new_start = self.time_string_to_num(params[:studentCourse][:timeStart])
+    new_end = self.time_string_to_num(params[:studentCourse][:timeEnd])
+
+    # get pattern & timeStart/timeEnd of all courses & components
+    student_courses = StudentCourse.all.where(student_id: student.id)
+    time_slots = []
+    student_courses.each do |course|
+      if course.student_course_components.length > 0
+        course_and_comps = [{
+          title_short: "#{course.parent.subject} #{course.parent.catalog_nbr}",
+          pattern: course.pattern,
+          time_start: self.time_string_to_num(course.time_start),
+          time_end: self.time_string_to_num(course.time_end),
+        }]
+        course.student_course_components.each do |comp|
+          course_and_comps.push({
+            title_short: "#{comp.parent_course.subject} #{comp.parent_course.catalog_nbr}",
+            pattern: comp.pattern,
+            time_start: self.time_string_to_num(comp.time_start),
+            time_end: self.time_string_to_num(comp.time_end),
+          })
+        end
+        time_slots.push(course_and_comps)
+      else
+        time_slots.push({
+          title_short: "#{course.parent.subject} #{course.parent.catalog_nbr}",
+          pattern: course.pattern,
+          time_start: self.time_string_to_num(course.time_start),
+          time_end: self.time_string_to_num(course.time_end),
+        })
+      end
+    end
+
+    #check for conflicts with each time slot
+    conflicts = []
+    time_slots.flatten.each do |slot|
+      if ((new_start > slot[:time_start]) && (new_start < slot[:time_end])) || ((new_end > slot[:time_start]) && (new_end < slot[:time_end]))
+        conflicts.push(slot[:title_short])
+      end
+    end
+    return conflicts
+  end
+
   def add_student_course # works
     student = Student.find(params[:student][:id])
     course = Course.find_or_create_by({
@@ -30,73 +84,79 @@ class Api::V1::StudentsController < ApplicationController
       session_begin_dt: params[:studentCourse][:sessionBeginDt],
       session_end_dt: params[:studentCourse][:sessionEndDt]
     })
-    student_course = StudentCourse.create({
-      student_id: student.id,
-      course_id: course.id,
-      section: params[:studentCourse][:section],
-      time_start: params[:studentCourse][:timeStart],
-      time_end: params[:studentCourse][:timeEnd],
-      pattern: params[:studentCourse][:pattern],
-      facility_descr: params[:studentCourse][:facilityDescr],
-      facility_descr_short: params[:studentCourse][:facilityDescrShort]
-    })
-    components = []
-    params[:studentCourse][:components].each do |component|
-      student_course_comp = StudentCourseComponent.create({
-        student_course_id: student_course.id,
-        title: component[:title],
-        component: component[:component],
-        section: component[:section],
-        time_start: component[:timeStart],
-        time_end: component[:timeEnd],
-        pattern: component[:pattern],
-        facility_descr: component[:facilityDescr],
-        facility_descr_short: component[:facilityDescrShort]
-      })
-      components.push(student_course_comp)
-    end
-
-    formatted_components = self.format_components(components)
-
-    instructors = params[:instructors] #will this be returned in the right format?
-    instructors.each do |instructor|
-      inst = Instructor.find_or_create_by({
-        net_id: instructor[:netid],
-        first_name: instructor[:firstName],
-        last_name: instructor[:lastName]
-      })
-      StudentCourseInstructor.create({
-        student_course_id: student_course.id,
-        instructor_id: inst.id
-      })
-    end
-
-    if course.assignments.length == 0
-      student_assignments = self.create_mock_data(course, student, student_course) ###UPDATE LATER WITH BETTER DATA
+    conflicts = self.check_for_course_conflicts(student)
+    if conflicts.length > 0
+      render json: { error: "This conflicts with: #{conflicts.join(',')}" }
     else
-      student_assignments = self.add_student_assignments(course, student_course)
+      student_course = StudentCourse.create({
+        student_id: student.id,
+        course_id: course.id,
+        section: params[:studentCourse][:section],
+        time_start: params[:studentCourse][:timeStart],
+        time_end: params[:studentCourse][:timeEnd],
+        pattern: params[:studentCourse][:pattern],
+        facility_descr: params[:studentCourse][:facilityDescr],
+        facility_descr_short: params[:studentCourse][:facilityDescrShort]
+        })
+        components = []
+        params[:studentCourse][:components].each do |component|
+          student_course_comp = StudentCourseComponent.create({
+            student_course_id: student_course.id,
+            title: component[:title],
+            component: component[:component],
+            section: component[:section],
+            time_start: component[:timeStart],
+            time_end: component[:timeEnd],
+            pattern: component[:pattern],
+            facility_descr: component[:facilityDescr],
+            facility_descr_short: component[:facilityDescrShort]
+          })
+          components.push(student_course_comp)
+        end
+
+        formatted_components = self.format_components(components)
+
+        instructors = params[:instructors] #will this be returned in the right format?
+        instructors.each do |instructor|
+          inst = Instructor.find_or_create_by({
+            net_id: instructor[:netid],
+            first_name: instructor[:firstName],
+            last_name: instructor[:lastName]
+          })
+          StudentCourseInstructor.create({
+            student_course_id: student_course.id,
+            instructor_id: inst.id
+          })
+        end
+
+        if course.assignments.length == 0
+          student_assignments = self.create_mock_data(course, student, student_course) ###UPDATE LATER WITH BETTER DATA
+        else
+          student_assignments = self.add_student_assignments(course, student_course)
+        end
+        # add other assignment data for calendar later
+        render json: {
+          studentCourse: {
+            studentCourseId: student_course.id,
+            crseId: course.crse_id,
+            section: student_course.section,
+            title: student_course.parent.title,
+            sessionBeginDt: student_course.parent.session_begin_dt,
+            sessionEndDt: student_course.parent.session_end_dt,
+            timeStart: student_course.time_start,
+            timeEnd: student_course.time_end,
+            pattern: student_course.pattern,
+            completed: student_course.completed,
+            facilityDescr: student_course.facility_descr,
+            facilityDescrShort: student_course.facility_descr_short,
+            subject: student_course.parent.subject,
+            catalogNbr: student_course.parent.catalog_nbr,
+            description: student_course.parent.description,
+            components: formatted_components
+          },
+          studentAssignments: self.format_assignments(student_assignments)
+        }
     end
-    # add other assignment data for calendar later
-    render json: {
-      studentCourse: {
-        studentCourseId: student_course.id,
-        section: student_course.section,
-        title: student_course.parent.title,
-        sessionBeginDt: student_course.parent.session_begin_dt,
-        sessionEndDt: student_course.parent.session_end_dt,
-        timeStart: student_course.time_start,
-        timeEnd: student_course.time_end,
-        pattern: student_course.pattern,
-        completed: student_course.completed,
-        facilityDescr: student_course.facility_descr,
-        facilityDescrShort: student_course.facility_descr_short,
-        subject: student_course.parent.subject,
-        catalogNbr: student_course.parent.catalog_nbr,
-        description: student_course.parent.description,
-        components: formatted_components
-      },
-      studentAssignments: self.format_assignments(student_assignments)
-    }
   end
 
   def format_components(components)
@@ -155,8 +215,10 @@ class Api::V1::StudentsController < ApplicationController
         student_assignment.completed = completed
         student_assignment.save
       end
-      if student_assignment.parent.primary_assignment_id && assignments_seen["#{student_assignment.parent.primary_assignment_id}"]
-        assignments_seen["#{student_assignment.id}"] = true
+      byebug
+      if !!student_assignment.parent.primary_assignment_id && assignments_seen["#{student_assignment.parent.primary_assignment_id}"]
+        assignments_seen["#{student_assignment.parent.id}"] = true
+        byebug
       else
         obj = {
           studentAssignmentId: student_assignment.id,
@@ -171,7 +233,7 @@ class Api::V1::StudentsController < ApplicationController
           parentStudentAssignmentId: StudentAssignment.find_by(assignment_id: student_assignment.parent.primary_assignment_id, student_course_id: student_assignment.student_course_id) ? StudentAssignment.find_by(assignment_id: student_assignment.parent.primary_assignment_id, student_course_id: student_assignment.student_course_id).id : nil
         }
         formatted_assignments.push(obj)
-        assignments_seen["#{student_assignment.id}"] = true
+        assignments_seen["#{student_assignment.parent.id}"] = true
       end
     end
     return formatted_assignments
