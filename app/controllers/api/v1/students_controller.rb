@@ -71,10 +71,11 @@ class Api::V1::StudentsController < ApplicationController
     return conflicts
   end
 
+  def convert_date_to_array(date)
+    return [date.year, date.month - 1, date.day, date.hour, date.min]
+  end
+
   def create_student_course_events(student_course, comp = false)
-    # num = time.scan(/\d+|\D+/)
-    # num.delete_at(1)
-    # num[0] = num[2] == "PM" ? (num[0].to_i + 12).to_s : num[0]
     if !comp
       parent = student_course.parent
       session_begin = parent.session_begin_dt.split("/").map {|t| t.to_i }
@@ -125,6 +126,7 @@ class Api::V1::StudentsController < ApplicationController
       count = 1
       while count < (max/7 + 1) do
         courseDt = start + (count * 7)
+
         courseDtEnd = courseDt.change({ hour: timeEnd[0].to_i, min: timeEnd[1].to_i })
         if !comp
           event = Event.create({
@@ -171,8 +173,8 @@ class Api::V1::StudentsController < ApplicationController
         this_event = {
           "title": "DUE #{assignment.parent.title}",
           "eventType": "assignment",
-          "startDate": assignment.parent.due_date,
-          "endDate": assignment.parent.due_date
+          "startDate": self.convert_date_to_array(assignment.parent.due_date),
+          "endDate": self.convert_date_to_array(assignment.parent.due_date)
         }
         due_dates.push(this_event)
       end
@@ -214,8 +216,8 @@ class Api::V1::StudentsController < ApplicationController
           this_event = {
             'title': event.title,
             'eventType': event.event_type,
-            'startDate': event.start_date,
-            'endDate': event.end_date
+            'startDate': self.convert_date_to_array(event.start_date),
+            'endDate': self.convert_date_to_array(event.end_date)
           }
         end
 
@@ -238,8 +240,8 @@ class Api::V1::StudentsController < ApplicationController
             this_event = {
               'title': event.title,
               'eventType': event.event_type,
-              'startDate': event.start_date,
-              'endDate': event.end_date
+              'startDate': self.convert_date_to_array(event.start_date),
+              'endDate': self.convert_date_to_array(event.end_date)
             }
           end
           student_course_events.push(component_events)
@@ -293,7 +295,7 @@ class Api::V1::StudentsController < ApplicationController
           },
           studentAssignments: self.format_assignments(student_assignments),
           dueDates: new_due_dates,
-          courseDates: student_course_events
+          courseDates: student_course_events.flatten
         }
     end
   end
@@ -335,8 +337,8 @@ class Api::V1::StudentsController < ApplicationController
       this_event = {
         'title': event.title,
         'eventType': event.event_type,
-        "startDate": event.start_date,
-        "endDate": event.end_date
+        "startDate": self.convert_date_to_array(event.start_date),
+        "endDate": self.convert_date_to_array(event.end_date)
       }
     end
 
@@ -345,11 +347,10 @@ class Api::V1::StudentsController < ApplicationController
       this_event = {
         'title': event.title,
         'eventType': event.event_type,
-        "startDate": event.start_date,
-        "endDate": event.end_date
+        "startDate": self.convert_date_to_array(event.start_date),
+        "endDate": self.convert_date_to_array(event.end_date)
       }
     end
-    byebug
 
     render json: { studentAssignments: student_assignments.flatten, dueDates: student_due_dates, courseDates: student_course_dates }
   end
@@ -554,10 +555,11 @@ class Api::V1::StudentsController < ApplicationController
     session_begin = parent.session_begin_dt.split("/").map {|t| t.to_i }
     session_end = parent.session_end_dt.split("/").map {|t| t.to_i }
 
-    beginDt = DateTime.new(session_begin[2], session_begin[0], session_begin[1]).change({ hour: 17 })
-    currDt = beginDt.next_week.advance(:days=>4)
+    beginDt = DateTime.new(session_begin[2], session_begin[0], session_begin[1])
+    currDt = beginDt.next_week.advance(:days=>4).change({ hour: 17 })
     endDt = DateTime.new(session_end[2], session_end[0], session_end[1])
     i = 0
+    byebug
 
     while currDt < endDt do
       pri = Assignment.create({course_id: course.id, title: "#{course.title} assignment #{i+1}", description: "complete assignment ##{i+1}", due_date: currDt})
@@ -570,9 +572,9 @@ class Api::V1::StudentsController < ApplicationController
         sub1a_a = Assignment.create({course_id: course.id, title: "#{course.title} assignment #{i+1}a_a", description: "complete assignment ##{i+1}a_a", due_date: currDt - 3, primary_assignment_id: sub1a.id})
         student_assignments.push(StudentAssignment.create({assignment_id: sub1a_a.id, student_course_id: student_course.id}))
         sub1a_b = Assignment.create({course_id: course.id, title: "#{course.title} assignment #{i+1}b_a", description: "complete assignment ##{i+1}a_b", due_date: currDt - 2, primary_assignment_id: sub1a.id})
-        student_assignments.push(StudentAssignment.create({assignment_id: sub1b_a.id, student_course_id: student_course.id}))
+        student_assignments.push(StudentAssignment.create({assignment_id: sub1a_b.id, student_course_id: student_course.id}))
       end
-      currDt = currDt.next_week.advance(:days=>rand(5))
+      currDt = currDt.next_week.advance(:days=>rand(5)).change({ hour: 17 })
       i += 1
     end
     return student_assignments
