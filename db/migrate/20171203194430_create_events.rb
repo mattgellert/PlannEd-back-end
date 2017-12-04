@@ -7,7 +7,7 @@ class CreateEvents < ActiveRecord::Migration[5.1]
       t.datetime :start_date
       t.datetime :end_date
       t.string :color
-
+      t.integer :parent_id
       t.timestamps
     end
   end

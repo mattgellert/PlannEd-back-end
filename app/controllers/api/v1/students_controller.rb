@@ -133,7 +133,8 @@ class Api::V1::StudentsController < ApplicationController
             title: "#{parent.subject} #{parent.catalog_nbr}",
             start_date: courseDt,
             end_date: courseDtEnd,
-            color: student_course.color
+            color: student_course.color,
+            parent_id: student_course.id
             })
           StudentCourseEvent.create({
             event_id: event.id,
@@ -144,7 +145,8 @@ class Api::V1::StudentsController < ApplicationController
             title: "#{student_course.component} #{student_course.course_parent.subject} #{student_course.course_parent.catalog_nbr}",
             start_date: courseDt,
             end_date: courseDtEnd,
-            color: student_course.color
+            color: student_course.color,
+            parent_id: student_course.id
           })
           StudCourseCompEvent.create({
             event_id: event.id,
@@ -165,7 +167,8 @@ class Api::V1::StudentsController < ApplicationController
           due_date: true,
           start_date: assignment.parent.due_date,
           end_date: assignment.parent.due_date,
-          color: course.color
+          color: course.color,
+          parent_id: course.id
         })
         StudentAssignmentEvent.create({
           event_id: event.id,
@@ -176,7 +179,8 @@ class Api::V1::StudentsController < ApplicationController
           "eventType": "due date",
           "startDate": self.convert_date_to_array(assignment.parent.due_date),
           "endDate": self.convert_date_to_array(assignment.parent.due_date),
-          "color": event.color
+          "color": event.color,
+          "parentId": event.parent_id
         }
         due_dates.push(this_event)
       end
@@ -222,7 +226,8 @@ class Api::V1::StudentsController < ApplicationController
             'eventType': "course",
             'startDate': self.convert_date_to_array(event.start_date),
             'endDate': self.convert_date_to_array(event.end_date),
-            'color': params[:color]
+            'color': params[:color],
+            'parentId': event.parent_id
           }
         end
 
@@ -247,7 +252,8 @@ class Api::V1::StudentsController < ApplicationController
               'eventType': "course",
               'startDate': self.convert_date_to_array(event.start_date),
               'endDate': self.convert_date_to_array(event.end_date),
-              'color': event.color
+              'color': event.color,
+              'parentId': event.parent_id
             }
           end
           student_course_events.push(component_events)
@@ -345,7 +351,8 @@ class Api::V1::StudentsController < ApplicationController
         'eventType': "course",
         "startDate": self.convert_date_to_array(event.start_date),
         "endDate": self.convert_date_to_array(event.end_date),
-        'color': event.color
+        'color': event.color,
+        'parentId': event.parent_id
       }
     end
 
@@ -356,7 +363,8 @@ class Api::V1::StudentsController < ApplicationController
         'eventType': "due date",
         "startDate": self.convert_date_to_array(event.start_date),
         "endDate": self.convert_date_to_array(event.end_date),
-        'color': event.color
+        'color': event.color,
+        'parentId': event.parent_id
       }
     end
 
@@ -368,7 +376,8 @@ class Api::V1::StudentsController < ApplicationController
           'eventType': "to do",
           "startDate": self.convert_date_to_array(event.start_date),
           "endDate": self.convert_date_to_array(event.end_date),
-          'color': event.color
+          'color': event.color,
+          'parentId': event.parentId
         }
       end
     end
@@ -609,12 +618,14 @@ class Api::V1::StudentsController < ApplicationController
   def add_assignment_to_do
     date = params[:date].split("/").map {|t| t.to_i }
     time = params[:time].split(":").map {|t| t.to_i }
+    student_course = StudentCourse.find(StudentAssignment.find(params[:studentAssignmentId]).student_course_id)
     event = Event.create({
       title: params[:title],
       assignment_to_do: true,
       start_date: DateTime.new(date[2], date[0], date[1]).change({ hour: time[0], min: time[1] }),
       end_date: DateTime.new(date[2], date[0], date[1]).change({ hour: time[2], min: time[3] }),
-      color: StudentCourse.find(StudentAssignment.find(params[:studentAssignmentId]).student_course_id).color
+      color: student_course.color,
+      parent_id: student_course.id
     })
     StudentAssignmentEvent.create({
       event_id: event.id,
