@@ -559,7 +559,6 @@ class Api::V1::StudentsController < ApplicationController
     currDt = beginDt.next_week.advance(:days=>4).change({ hour: 17 })
     endDt = DateTime.new(session_end[2], session_end[0], session_end[1])
     i = 0
-    byebug
 
     while currDt < endDt do
       pri = Assignment.create({course_id: course.id, title: "#{course.title} assignment #{i+1}", description: "complete assignment ##{i+1}", due_date: currDt})
