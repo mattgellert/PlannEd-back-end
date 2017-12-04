@@ -131,7 +131,6 @@ class Api::V1::StudentsController < ApplicationController
         if !comp
           event = Event.create({
             title: "#{parent.subject} #{parent.catalog_nbr}",
-            event_type: "course",
             start_date: courseDt,
             end_date: courseDtEnd
             })
@@ -142,7 +141,6 @@ class Api::V1::StudentsController < ApplicationController
         else
           event = Event.create({
             title: "#{student_course.component} #{student_course.course_parent.subject} #{student_course.course_parent.catalog_nbr}",
-            event_type: "course",
             start_date: courseDt,
             end_date: courseDtEnd
           })
@@ -162,17 +160,17 @@ class Api::V1::StudentsController < ApplicationController
       course.student_assignments.each do |assignment|
         event = Event.create({
           title: "DUE #{assignment.parent.title}",
-          event_type: "assignment",
+          due_date: true,
           start_date: assignment.parent.due_date,
           end_date: assignment.parent.due_date
         })
         StudentAssignmentEvent.create({
           event_id: event.id,
-          student_assignment_id: assignment.id
+          student_assignment_id: assignment.id,
         })
         this_event = {
           "title": "DUE #{assignment.parent.title}",
-          "eventType": "assignment",
+          "eventType": "due date",
           "startDate": self.convert_date_to_array(assignment.parent.due_date),
           "endDate": self.convert_date_to_array(assignment.parent.due_date)
         }
@@ -215,7 +213,7 @@ class Api::V1::StudentsController < ApplicationController
         student_course_events = student_course.events.map do |event|
           this_event = {
             'title': event.title,
-            'eventType': event.event_type,
+            'eventType': "course",
             'startDate': self.convert_date_to_array(event.start_date),
             'endDate': self.convert_date_to_array(event.end_date)
           }
@@ -239,7 +237,7 @@ class Api::V1::StudentsController < ApplicationController
           component_events = student_course_comp.events.map do |event|
             this_event = {
               'title': event.title,
-              'eventType': event.event_type,
+              'eventType': "course",
               'startDate': self.convert_date_to_array(event.start_date),
               'endDate': self.convert_date_to_array(event.end_date)
             }
@@ -336,23 +334,35 @@ class Api::V1::StudentsController < ApplicationController
     student_course_dates = student_course_dates.flatten.map do |event|
       this_event = {
         'title': event.title,
-        'eventType': event.event_type,
+        'eventType': "course",
         "startDate": self.convert_date_to_array(event.start_date),
         "endDate": self.convert_date_to_array(event.end_date)
       }
     end
 
     student_due_dates = unformatted_assignments.flatten.map do |assignment|
-      event = assignment.events[0]
+      event = assignment.events.where(due_date: true)[0]
       this_event = {
         'title': event.title,
-        'eventType': event.event_type,
+        'eventType': "due date",
         "startDate": self.convert_date_to_array(event.start_date),
         "endDate": self.convert_date_to_array(event.end_date)
       }
     end
 
-    render json: { studentAssignments: student_assignments.flatten, dueDates: student_due_dates, courseDates: student_course_dates }
+    student_assignment_to_dos = unformatted_assignments.flatten.map do |assignment|
+      events = assignment.events.where(assignment_to_do: true)
+      events.map do |event|
+        this_event = {
+          'title': event.title,
+          'eventType': "to do",
+          "startDate": self.convert_date_to_array(event.start_date),
+          "endDate": self.convert_date_to_array(event.end_date)
+        }
+      end
+    end
+
+    render json: { studentAssignments: student_assignments.flatten, dueDates: student_due_dates, courseDates: student_course_dates, toDoItems: student_assignment_to_dos.flatten }
   end
 
   def is_completed_parent(student_assignment, numSubs)
@@ -584,36 +594,29 @@ class Api::V1::StudentsController < ApplicationController
       StudentAssignment.create({assignment_id: assignment.id, student_course_id: student_course.id})
     end
   end
-  #
-  # def create_mock_data(course, student, student_course)
-  #   student_assignments = []
-  #   5.times do |i|
-  #     now = DateTime.now
-  #     date = DateTime.new(now.year, now.month, now.day, 17, 0, 0, now.zone) + 10
-  #     pri = Assignment.create({course_id: course.id, title: "#{course.title} assignment #{i+1}", description: "complete assignment ##{i+1}", due_date: date})
-  #     student_assignments.push(StudentAssignment.create({assignment_id: pri.id, student_course_id: student_course.id}))
-  #     if (i+1) % 2 == 0
-  #       sub1a = Assignment.create({course_id: course.id, title: "#{course.title} assignment #{i+1}a", description: "complete assignment ##{i+1}a", due_date: date - 2, primary_assignment_id: pri.id})
-  #       student_assignments.push(StudentAssignment.create({assignment_id: sub1a.id, student_course_id: student_course.id}))
-  #       sub1b = Assignment.create({course_id: course.id, title: "#{course.title} assignment #{i+1}b", description: "complete assignment ##{i+1}b", due_date: date - 1, primary_assignment_id: pri.id})
-  #       student_assignments.push(StudentAssignment.create({assignment_id: sub1b.id, student_course_id: student_course.id}))
-  #     end
-  #     if (i+1) % 4 == 0
-  #       sub1a_a = Assignment.create({course_id: course.id, title: "#{course.title} assignment #{i+1}a_a", description: "complete assignment ##{i+1}a_a", due_date: date - 3, primary_assignment_id: sub1a.id})
-  #       student_assignments.push(StudentAssignment.create({assignment_id: sub1a_a.id, student_course_id: student_course.id}))
-  #       sub1b_a = Assignment.create({course_id: course.id, title: "#{course.title} assignment #{i+1}b_a", description: "complete assignment ##{i+1}b_a", due_date: date - 2, primary_assignment_id: sub1b.id})
-  #       student_assignments.push(StudentAssignment.create({assignment_id: sub1b_a.id, student_course_id: student_course.id}))
-  #     end
-  #   end
-  #   return student_assignments
-  # end
-  #
-  # def add_student_assignments(course, student_course)
-  #   student_assignments = course.assignments.map do |assignment|
-  #     StudentAssignment.create({assignment_id: assignment.id, student_course_id: student_course.id})
-  #   end
-  # end
 
+  def add_assignment_to_do
+    debugger
+    date = params[:date].split("/").map {|t| t.to_i }
+    time = params[:time].split(":").map {|t| t.to_i }
+    event = Event.create({
+      title: params[:title],
+      assignment_to_do: true,
+      start_date: DateTime.new(date[2], date[0], date[1]).change({ hour: time[0], min: time[1] }),
+      end_date: DateTime.new(date[2], date[0], date[1]).change({ hour: time[2], min: time[3] })
+    })
+    StudentAssignmentEvent.create({
+      event_id: event.id,
+      student_assignment_id: params[:studentAssignmentId]
+    })
+
+    render json: {
+      'title': event.title,
+      'eventType': "to do",
+      "startDate": self.convert_date_to_array(event.start_date),
+      "endDate": self.convert_date_to_array(event.end_date)
+    }
+  end
 
 end
 
