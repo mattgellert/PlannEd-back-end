@@ -48,6 +48,7 @@ ActiveRecord::Schema.define(version: 20171203200212) do
     t.boolean "assignment_to_do", default: false
     t.datetime "start_date"
     t.datetime "end_date"
+    t.string "color"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
   end
@@ -131,6 +132,7 @@ ActiveRecord::Schema.define(version: 20171203200212) do
     t.string "pattern"
     t.string "facility_descr"
     t.string "facility_descr_short"
+    t.string "color"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["course_id"], name: "index_student_courses_on_course_id"

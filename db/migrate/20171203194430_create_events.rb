@@ -6,6 +6,7 @@ class CreateEvents < ActiveRecord::Migration[5.1]
       t.boolean :assignment_to_do, default: false
       t.datetime :start_date
       t.datetime :end_date
+      t.string :color
 
       t.timestamps
     end

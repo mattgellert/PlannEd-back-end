@@ -132,7 +132,8 @@ class Api::V1::StudentsController < ApplicationController
           event = Event.create({
             title: "#{parent.subject} #{parent.catalog_nbr}",
             start_date: courseDt,
-            end_date: courseDtEnd
+            end_date: courseDtEnd,
+            color: student_course.color
             })
           StudentCourseEvent.create({
             event_id: event.id,
@@ -142,7 +143,8 @@ class Api::V1::StudentsController < ApplicationController
           event = Event.create({
             title: "#{student_course.component} #{student_course.course_parent.subject} #{student_course.course_parent.catalog_nbr}",
             start_date: courseDt,
-            end_date: courseDtEnd
+            end_date: courseDtEnd,
+            color: student_course.color
           })
           StudCourseCompEvent.create({
             event_id: event.id,
@@ -162,7 +164,8 @@ class Api::V1::StudentsController < ApplicationController
           title: "DUE #{assignment.parent.title}",
           due_date: true,
           start_date: assignment.parent.due_date,
-          end_date: assignment.parent.due_date
+          end_date: assignment.parent.due_date,
+          color: course.color
         })
         StudentAssignmentEvent.create({
           event_id: event.id,
@@ -172,7 +175,8 @@ class Api::V1::StudentsController < ApplicationController
           "title": "DUE #{assignment.parent.title}",
           "eventType": "due date",
           "startDate": self.convert_date_to_array(assignment.parent.due_date),
-          "endDate": self.convert_date_to_array(assignment.parent.due_date)
+          "endDate": self.convert_date_to_array(assignment.parent.due_date),
+          "color": event.color
         }
         due_dates.push(this_event)
       end
@@ -194,6 +198,7 @@ class Api::V1::StudentsController < ApplicationController
       session_begin_dt: params[:studentCourse][:sessionBeginDt],
       session_end_dt: params[:studentCourse][:sessionEndDt]
     })
+
     conflicts = self.check_for_course_conflicts(student)
     if conflicts.length > 0
       render json: { error: "This conflicts with: #{conflicts.join(',')}" }
@@ -206,7 +211,8 @@ class Api::V1::StudentsController < ApplicationController
         time_end: params[:studentCourse][:timeEnd],
         pattern: params[:studentCourse][:pattern],
         facility_descr: params[:studentCourse][:facilityDescr],
-        facility_descr_short: params[:studentCourse][:facilityDescrShort]
+        facility_descr_short: params[:studentCourse][:facilityDescrShort],
+        color: params[:color]
         })
         ##################
         self.create_student_course_events(student_course)
@@ -215,7 +221,8 @@ class Api::V1::StudentsController < ApplicationController
             'title': event.title,
             'eventType': "course",
             'startDate': self.convert_date_to_array(event.start_date),
-            'endDate': self.convert_date_to_array(event.end_date)
+            'endDate': self.convert_date_to_array(event.end_date),
+            'color': params[:color]
           }
         end
 
@@ -239,7 +246,8 @@ class Api::V1::StudentsController < ApplicationController
               'title': event.title,
               'eventType': "course",
               'startDate': self.convert_date_to_array(event.start_date),
-              'endDate': self.convert_date_to_array(event.end_date)
+              'endDate': self.convert_date_to_array(event.end_date),
+              'color': event.color
             }
           end
           student_course_events.push(component_events)
@@ -336,7 +344,8 @@ class Api::V1::StudentsController < ApplicationController
         'title': event.title,
         'eventType': "course",
         "startDate": self.convert_date_to_array(event.start_date),
-        "endDate": self.convert_date_to_array(event.end_date)
+        "endDate": self.convert_date_to_array(event.end_date),
+        'color': event.color
       }
     end
 
@@ -346,7 +355,8 @@ class Api::V1::StudentsController < ApplicationController
         'title': event.title,
         'eventType': "due date",
         "startDate": self.convert_date_to_array(event.start_date),
-        "endDate": self.convert_date_to_array(event.end_date)
+        "endDate": self.convert_date_to_array(event.end_date),
+        'color': event.color
       }
     end
 
@@ -357,7 +367,8 @@ class Api::V1::StudentsController < ApplicationController
           'title': event.title,
           'eventType': "to do",
           "startDate": self.convert_date_to_array(event.start_date),
-          "endDate": self.convert_date_to_array(event.end_date)
+          "endDate": self.convert_date_to_array(event.end_date),
+          'color': event.color
         }
       end
     end
@@ -602,7 +613,8 @@ class Api::V1::StudentsController < ApplicationController
       title: params[:title],
       assignment_to_do: true,
       start_date: DateTime.new(date[2], date[0], date[1]).change({ hour: time[0], min: time[1] }),
-      end_date: DateTime.new(date[2], date[0], date[1]).change({ hour: time[2], min: time[3] })
+      end_date: DateTime.new(date[2], date[0], date[1]).change({ hour: time[2], min: time[3] }),
+      color: StudentCourse.find(StudentAssignment.find(params[:studentAssignmentId]).student_course_id).color
     })
     StudentAssignmentEvent.create({
       event_id: event.id,
