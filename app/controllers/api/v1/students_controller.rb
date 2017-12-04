@@ -596,7 +596,6 @@ class Api::V1::StudentsController < ApplicationController
   end
 
   def add_assignment_to_do
-    debugger
     date = params[:date].split("/").map {|t| t.to_i }
     time = params[:time].split(":").map {|t| t.to_i }
     event = Event.create({
