@@ -377,7 +377,7 @@ class Api::V1::StudentsController < ApplicationController
           "startDate": self.convert_date_to_array(event.start_date),
           "endDate": self.convert_date_to_array(event.end_date),
           'color': event.color,
-          'parentId': event.parentId
+          'parentId': event.parent_id
         }
       end
     end
