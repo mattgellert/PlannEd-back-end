@@ -7,8 +7,9 @@ class CreateEvents < ActiveRecord::Migration[5.1]
       t.datetime :start_date
       t.datetime :end_date
       t.string :color
-      t.integer :parent_id
-      
+      t.integer :student_course_id, defalut: nil
+      t.integer :student_assignment_id, default: nil
+
       t.timestamps
     end
   end

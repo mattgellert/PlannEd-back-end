@@ -134,8 +134,8 @@ class Api::V1::StudentsController < ApplicationController
             start_date: courseDt,
             end_date: courseDtEnd,
             color: student_course.color,
-            parent_id: student_course.id
-            })
+            student_course_id: student_course.id
+          })
           StudentCourseEvent.create({
             event_id: event.id,
             student_course_id: student_course.id
@@ -146,7 +146,7 @@ class Api::V1::StudentsController < ApplicationController
             start_date: courseDt,
             end_date: courseDtEnd,
             color: student_course.color,
-            parent_id: student_course.id
+            student_course_id: student_course.id
           })
           StudCourseCompEvent.create({
             event_id: event.id,
@@ -168,19 +168,22 @@ class Api::V1::StudentsController < ApplicationController
           start_date: assignment.parent.due_date,
           end_date: assignment.parent.due_date,
           color: course.color,
-          parent_id: course.id
+          student_course_id: course.id,
+          student_assignment_id: assignment.id
         })
         StudentAssignmentEvent.create({
           event_id: event.id,
           student_assignment_id: assignment.id,
         })
         this_event = {
+          "id": event.id,
           "title": "DUE #{assignment.parent.title}",
           "eventType": "due date",
           "startDate": self.convert_date_to_array(assignment.parent.due_date),
           "endDate": self.convert_date_to_array(assignment.parent.due_date),
           "color": event.color,
-          "parentId": event.parent_id,
+          "studentCourseId": event.student_course_id,
+          "studentAssignmentId": assignment.id,
           "completed": assignment.completed
         }
         due_dates.push(this_event)
@@ -223,12 +226,13 @@ class Api::V1::StudentsController < ApplicationController
         self.create_student_course_events(student_course)
         student_course_events = student_course.events.map do |event|
           this_event = {
+            'id': event.id,
             'title': event.title,
             'eventType': "course",
             'startDate': self.convert_date_to_array(event.start_date),
             'endDate': self.convert_date_to_array(event.end_date),
             'color': params[:color],
-            'parentId': event.parent_id
+            'studentCourseId': event.student_course_id
           }
         end
 
@@ -249,12 +253,13 @@ class Api::V1::StudentsController < ApplicationController
           self.create_student_course_events(student_course_comp, true)
           component_events = student_course_comp.events.map do |event|
             this_event = {
+              'id': event.id,
               'title': event.title,
               'eventType': "course",
               'startDate': self.convert_date_to_array(event.start_date),
               'endDate': self.convert_date_to_array(event.end_date),
               'color': event.color,
-              'parentId': event.parent_id
+              'studentCourseId': event.student_course_id
             }
           end
           student_course_events.push(component_events)
@@ -352,24 +357,27 @@ class Api::V1::StudentsController < ApplicationController
 
     student_course_dates = student_course_dates.flatten.map do |event|
       this_event = {
+        'id': event.id,
         'title': event.title,
         'eventType': "course",
         "startDate": self.convert_date_to_array(event.start_date),
         "endDate": self.convert_date_to_array(event.end_date),
         'color': event.color,
-        'parentId': event.parent_id
+        'studentCourseId': event.student_course_id
       }
     end
 
     student_due_dates = unformatted_assignments.flatten.map do |assignment|
       event = assignment.events.where(due_date: true)[0]
       this_event = {
+        'id': event.id,
         'title': event.title,
         'eventType': "due date",
         "startDate": self.convert_date_to_array(event.start_date),
         "endDate": self.convert_date_to_array(event.end_date),
         'color': event.color,
-        'parentId': event.parent_id,
+        'studentCourseId': event.student_course_id,
+        'studentAssignmentId': assignment.id,
         'completed': assignment.completed
       }
     end
@@ -378,12 +386,15 @@ class Api::V1::StudentsController < ApplicationController
       events = assignment.events.where(assignment_to_do: true)
       events.map do |event|
         this_event = {
+          'id': event.id,
           'title': event.title,
           'eventType': "to do",
           "startDate": self.convert_date_to_array(event.start_date),
           "endDate": self.convert_date_to_array(event.end_date),
           'color': event.color,
-          'parentId': event.parent_id
+          'studentCourseId': event.student_course_id,
+          'studentAssignmentId': assignment.id,
+          'completed': assignment.completed
         }
       end
     end
@@ -516,27 +527,63 @@ class Api::V1::StudentsController < ApplicationController
       sub_assignments = params[:subAssignmentIds].map { |id| StudentAssignment.find(id) }
       sub_assignments.push(student_assignment)
       ids = params[:rootAssignmentIds].concat(params[:subAssignmentIds])
+      all_assignments = [root_assignments, sub_assignments].flatten
+      updated_due_date_events = self.update_due_dates_on_complete(all_assignments)
+      toDos = self.update_to_do_on_complete(all_assignments)
       render json: {
         ids: ids,
         subAssignments: self.format_assignments_without_filter(sub_assignments),
-        rootAssignments: self.format_assignments(root_assignments)
+        rootAssignments: self.format_assignments(root_assignments),
+        dueDates: updated_due_date_events,
+        toDos: toDos
       }
     else
-      render json: { studentAssignment: self.format_assignments([student_assignment])[0] }
+      updated_due_date_events = self.update_due_dates_on_complete([student_assignment])
+      toDos = self.update_to_do_on_complete([student_assignment])
+      render json: {
+        studentAssignment: self.format_assignments([student_assignment])[0],
+        dueDates: updated_due_date_events,
+        toDos: toDos
+      }
     end
+  end
+
+  def update_due_dates_on_complete(student_assignments)
+    updated_event_ids = student_assignments.map do |assignment|
+      events = assignment.events.where(due_date: true).map do |event|
+        # event.completed = !event.completed
+        # event.save
+        this_event_id = event.id
+      end
+    end
+    return updated_event_ids.flatten
+  end
+
+  def update_to_do_on_complete(student_assignments)
+    updated_event_ids = student_assignments.map do |assignment|
+      events = assignment.events.where(assignment_to_do: true).map do |event|
+        # event.completed = !event.completed
+        # event.save
+        this_event_id = event.id
+      end
+    end
+    return updated_event_ids.flatten
   end
 
   def complete_parent_assignment
     parent_assignment = StudentAssignment.find(params[:studentAssignmentId])
     @@ids = [parent_assignment.id]
+    @@all_assignments = [parent_assignment]
     parent_assignment.completed = !parent_assignment.completed
     parent_assignment.save
     if parent_assignment.completed
       self.complete_children(parent_assignment)
-      render json: { ids: @@ids, completed: true }
+      toDos = self.update_to_do_on_complete([parent_assignment])
+      render json: { ids: @@ids, completed: true, dueDates: self.update_due_dates_on_complete(@@all_assignments), toDos: toDos }
     else
       self.incomplete_children(parent_assignment)
-      render json: { ids: @@ids, completed: false }
+      toDos = self.update_to_do_on_complete([parent_assignment])
+      render json: { ids: @@ids, completed: false, dueDates: self.update_due_dates_on_complete(@@all_assignments), toDos: toDos }
     end
 
   end
@@ -545,6 +592,7 @@ class Api::V1::StudentsController < ApplicationController
     student_assignment.parent.sub_assignments.each_with_index do |sub_ass, idx| #is from the class Assignment so need the Student's verions -->
       student_sub_ass = StudentAssignment.find_by(assignment_id: sub_ass.id, student_course_id: student_assignment.student_course_id)
       @@ids.push(student_sub_ass.id)
+      @@all_assignments.push(student_sub_ass)
       student_sub_ass.completed = true
       student_sub_ass.save
       self.complete_children(student_sub_ass)
@@ -555,11 +603,23 @@ class Api::V1::StudentsController < ApplicationController
     student_assignment.parent.sub_assignments.each_with_index do |sub_ass, idx| #is from the class Assignment so need the Student's verions -->
       student_sub_ass = StudentAssignment.find_by(assignment_id: sub_ass.id, student_course_id: student_assignment.student_course_id)
       @@ids.push(student_sub_ass.id)
+      @@all_assignments.push(student_sub_ass)
       student_sub_ass.completed = false
       student_sub_ass.save
       self.complete_children(student_sub_ass)
     end
   end
+
+  # def delete_to_do_on_complete
+  #   if params[:keep]
+  #     updated_to_dos =
+  #   else
+  #     updated_to_dos =
+  #   end
+  #   render json: { toDos: updated_to_dos }
+  #   # depending on user input, delete to do items of completed shit or dont and return them
+  #
+  # end
 
   def complete_course
     student_course = StudentCourse.find(params[:studentCourseId])
@@ -636,14 +696,16 @@ class Api::V1::StudentsController < ApplicationController
   def add_assignment_to_do
     date = params[:date].split("/").map {|t| t.to_i }
     time = params[:time].split(":").map {|t| t.to_i }
-    student_course = StudentCourse.find(StudentAssignment.find(params[:studentAssignmentId]).student_course_id)
+    student_assignment = StudentAssignment.find(params[:studentAssignmentId])
+    student_course = StudentCourse.find(student_assignment.student_course_id)
     event = Event.create({
       title: params[:title],
       assignment_to_do: true,
       start_date: DateTime.new(date[2], date[0], date[1]).change({ hour: time[0], min: time[1] }),
       end_date: DateTime.new(date[2], date[0], date[1]).change({ hour: time[2], min: time[3] }),
       color: student_course.color,
-      parent_id: student_course.id
+      student_course_id: student_course.id,
+      student_assignment_id: params[:studentAssignmentId]
     })
     StudentAssignmentEvent.create({
       event_id: event.id,
@@ -651,10 +713,15 @@ class Api::V1::StudentsController < ApplicationController
     })
 
     render json: {
+      'id': event.id,
       'title': event.title,
       'eventType': "to do",
       "startDate": self.convert_date_to_array(event.start_date),
-      "endDate": self.convert_date_to_array(event.end_date)
+      "endDate": self.convert_date_to_array(event.end_date),
+      'color': event.color,
+      'studentCourseId': event.student_course_id,
+      'studentAssignmentId': student_assignment.id,
+      'completed': student_assignment.completed
     }
   end
 

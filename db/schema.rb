@@ -49,7 +49,8 @@ ActiveRecord::Schema.define(version: 20171203200212) do
     t.datetime "start_date"
     t.datetime "end_date"
     t.string "color"
-    t.integer "parent_id"
+    t.integer "student_course_id"
+    t.integer "student_assignment_id"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
   end
