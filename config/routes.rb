@@ -20,6 +20,7 @@ Rails.application.routes.draw do
       post '/students/complete_course', to: 'students#complete_course'
       get '/students/get_sub_assignments', to: 'students#get_sub_assignments'
       post '/students/add_assignment_to_do', to: 'students#add_assignment_to_do'
+      delete '/students/remove_course', to: 'students#remove_course'
       # get '/students/upcoming', to: 'students#upcoming_assignments'
     end
   end

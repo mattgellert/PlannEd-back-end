@@ -725,6 +725,34 @@ class Api::V1::StudentsController < ApplicationController
     }
   end
 
+  def remove_course
+    student_course = StudentCourse.find(params[:studentCourseId])
+    student_id = student_course.student_id
+    starting_courses = StudentCourse.all.where(student_id: student_id)
+
+    #destroy all join table
+    student_course_instructors = StudentCourseInstructor.all.where(student_course_id: student_course.id).each{|i| i.delete }
+
+    student_course_components = StudentCourseComponent.all.where(student_course_id: student_course.id)
+    student_course_components.each do |comp|
+      StudCourseCompEvent.all.where(student_course_component_id: comp.id).each{|c| c.delete}
+      comp.delete
+    end
+    StudentCourseEvent.all.where(student_course_id: student_course.id).each{|e| e.delete }
+    student_course_events = student_course.events.each{|e| e.delete }
+    student_assignment_events = student_course.student_assignments.each do |ass|
+      StudentAssignmentEvent.all.where(student_assignment_id: ass.id).each{|a| a.delete }
+      ass.events.each{|e| e.delete }
+      ass.delete
+    end
+
+    student_course.delete
+
+    remaining_courses = StudentCourse.all.where(student_id: student_id)
+    params[:studentId] = student_id
+    self.student_courses
+  end
+
 end
 
 # studentAssignmentId: student_assignment.id,
