@@ -344,6 +344,10 @@ class Api::V1::StudentsController < ApplicationController
       unformatted_assignments.push(assignments)
       student_assignments.push(self.format_assignments(assignments))
       student_course_dates.push(student_course.events)
+      component_events = student_course.student_course_components.map do |comp|
+        comp.events
+      end
+      student_course_dates.push(component_events.flatten)
     end
 
     student_course_dates = student_course_dates.flatten.map do |event|
