@@ -508,6 +508,7 @@ class Api::V1::StudentsController < ApplicationController
           timeStart: student_course.time_start,
           timeEnd: student_course.time_end,
           pattern: student_course.pattern,
+          color: student_course.color,
           completed: student_course.completed,
           facilityDescr: student_course.facility_descr,
           facilityDescrShort: student_course.facility_descr_short,
@@ -753,6 +754,37 @@ class Api::V1::StudentsController < ApplicationController
     student_course.delete
 
     remaining_courses = StudentCourse.all.where(student_id: student_id)
+    params[:studentId] = student_id
+    self.student_courses
+  end
+
+  def update_course_color
+    student_course = StudentCourse.find(params[:studentCourseId])
+    student_id = student_course.student_id
+    color = params[:color]
+    student_course.color = color
+    student_course.save
+
+    student_course.student_course_components.each do |comp|
+      comp.color = color
+      comp.save
+      comp.events.each do |event|
+        event.color = color
+        event.save
+      end
+    end
+
+    student_course.events.each do |event|
+      event.color = color
+      event.save
+    end
+
+    student_course.student_assignments.each do |assignment|
+      assignment.events.each do |event|
+        event.color = color
+        event.save
+      end
+    end
     params[:studentId] = student_id
     self.student_courses
   end
