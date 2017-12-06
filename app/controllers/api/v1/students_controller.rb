@@ -247,7 +247,8 @@ class Api::V1::StudentsController < ApplicationController
             time_end: component[:timeEnd],
             pattern: component[:pattern],
             facility_descr: component[:facilityDescr],
-            facility_descr_short: component[:facilityDescrShort]
+            facility_descr_short: component[:facilityDescrShort],
+            color: params[:color]
           })
           ##################
           self.create_student_course_events(student_course_comp, true)
@@ -388,6 +389,7 @@ class Api::V1::StudentsController < ApplicationController
         this_event = {
           'id': event.id,
           'title': event.title,
+          'description': event.description,
           'eventType': "to do",
           "startDate": self.convert_date_to_array(event.start_date),
           "endDate": self.convert_date_to_array(event.end_date),
@@ -701,6 +703,7 @@ class Api::V1::StudentsController < ApplicationController
     event = Event.create({
       title: params[:title],
       assignment_to_do: true,
+      description: params[:description],
       start_date: DateTime.new(date[2], date[0], date[1]).change({ hour: time[0], min: time[1] }),
       end_date: DateTime.new(date[2], date[0], date[1]).change({ hour: time[2], min: time[3] }),
       color: student_course.color,
@@ -715,6 +718,7 @@ class Api::V1::StudentsController < ApplicationController
     render json: {
       'id': event.id,
       'title': event.title,
+      'description': event.description,
       'eventType': "to do",
       "startDate": self.convert_date_to_array(event.start_date),
       "endDate": self.convert_date_to_array(event.end_date),

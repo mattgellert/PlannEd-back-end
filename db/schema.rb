@@ -44,6 +44,7 @@ ActiveRecord::Schema.define(version: 20171203200212) do
 
   create_table "events", force: :cascade do |t|
     t.string "title"
+    t.string "description"
     t.boolean "due_date", default: false
     t.boolean "assignment_to_do", default: false
     t.datetime "start_date"
