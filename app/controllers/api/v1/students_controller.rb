@@ -790,7 +790,8 @@ class Api::V1::StudentsController < ApplicationController
       student_assignment_event = StudentAssignmentEvent.find_by(event_id: params[:id])
       student_assignment_event.delete
     else
-      student_course_event = StudentCourseAssignment.find_by(event_id: params[:id])
+      byebug
+      student_course_event = StudentCourseEvent.find_by(event_id: params[:id])
       student_course_event.delete
     end
     event.delete
