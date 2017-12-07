@@ -47,6 +47,8 @@ ActiveRecord::Schema.define(version: 20171203200212) do
     t.string "description"
     t.boolean "due_date", default: false
     t.boolean "assignment_to_do", default: false
+    t.boolean "course_to_do", default: false
+    t.boolean "completed"
     t.datetime "start_date"
     t.datetime "end_date"
     t.string "color"

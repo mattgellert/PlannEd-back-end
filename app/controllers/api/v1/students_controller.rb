@@ -357,15 +357,30 @@ class Api::V1::StudentsController < ApplicationController
     end
 
     student_course_dates = student_course_dates.flatten.map do |event|
-      this_event = {
-        'id': event.id,
-        'title': event.title,
-        'eventType': "course",
-        "startDate": self.convert_date_to_array(event.start_date),
-        "endDate": self.convert_date_to_array(event.end_date),
-        'color': event.color,
-        'studentCourseId': event.student_course_id
-      }
+      if event.course_to_do
+        this_event = {
+          'id': event.id,
+          'title': event.title,
+          'eventType': "course to do",
+          'description': event.description,
+          "startDate": self.convert_date_to_array(event.start_date),
+          "endDate": self.convert_date_to_array(event.end_date),
+          'color': event.color,
+          'studentCourseId': event.student_course_id,
+          'completed': event.completed
+        }
+      else
+        this_event = {
+          'id': event.id,
+          'title': event.title,
+          'eventType': "course",
+          "startDate": self.convert_date_to_array(event.start_date),
+          "endDate": self.convert_date_to_array(event.end_date),
+          'color': event.color,
+          'studentCourseId': event.student_course_id
+        }
+      end
+      this_event
     end
 
     student_due_dates = unformatted_assignments.flatten.map do |assignment|
@@ -374,6 +389,7 @@ class Api::V1::StudentsController < ApplicationController
         'id': event.id,
         'title': event.title,
         'eventType': "due date",
+        'description': event.description,
         "startDate": self.convert_date_to_array(event.start_date),
         "endDate": self.convert_date_to_array(event.end_date),
         'color': event.color,
@@ -701,6 +717,7 @@ class Api::V1::StudentsController < ApplicationController
     time = params[:time].split(":").map {|t| t.to_i }
     student_assignment = StudentAssignment.find(params[:studentAssignmentId])
     student_course = StudentCourse.find(student_assignment.student_course_id)
+
     event = Event.create({
       title: params[:title],
       assignment_to_do: true,
@@ -729,6 +746,101 @@ class Api::V1::StudentsController < ApplicationController
       'completed': student_assignment.completed
     }
   end
+
+  def update_to_do
+    date = params[:date].split("/").map {|t| t.to_i }
+    time = params[:time].split(":").map {|t| t.to_i }
+    event_type = params[:eventType]
+
+    event = Event.find(params[:id])
+    event.title = params[:title]
+    event.description = params[:description]
+    event.start_date = DateTime.new(date[2], date[0], date[1]).change({ hour: time[0], min: time[1] })
+    event.end_date = DateTime.new(date[2], date[0], date[1]).change({ hour: time[2], min: time[3] })
+    event.save
+
+    # "to do" > Assignment & Course & assignment.completed
+    # "course to do" > Course & event.completed
+    if event_type == "to do"
+      student_assignment = StudentAssignment.find(event.student_assignment_id)
+      student_assignment_id = student_assignment.id
+      completed = student_assignment.completed
+    elsif event_type == "course to do"
+      student_assignment_id = nil
+      completed = event.completed
+    end
+
+    render json: {
+      'id': event.id,
+      'title': event.title,
+      'description': event.description,
+      'eventType': params[:eventType],
+      "startDate": self.convert_date_to_array(event.start_date),
+      "endDate": self.convert_date_to_array(event.end_date),
+      'color': event.color,
+      'studentCourseId': event.student_course_id,
+      'studentAssignmentId': student_assignment_id,
+      'completed': completed
+    }
+  end
+
+  def delete_to_do
+    event = Event.find(params[:id])
+    if !!event.student_assignment_id
+      student_assignment_event = StudentAssignmentEvent.find_by(event_id: params[:id])
+      student_assignment_event.delete
+    else
+      student_course_event = StudentCourseAssignment.find_by(event_id: params[:id])
+      student_course_event.delete
+    end
+    event.delete
+    render json: { id: params[:id] }
+  end
+
+  def add_course_to_do
+    date = params[:date].split("/").map {|t| t.to_i }
+    time = params[:time].split(":").map {|t| t.to_i }
+    student_course = StudentCourse.find(params[:studentCourseId])
+    event = Event.create({
+      title: params[:title],
+      course_to_do: true,
+      completed: false,
+      description: params[:description],
+      start_date: DateTime.new(date[2], date[0], date[1]).change({ hour: time[0], min: time[1] }),
+      end_date: DateTime.new(date[2], date[0], date[1]).change({ hour: time[2], min: time[3] }),
+      color: student_course.color,
+      student_course_id: student_course.id
+    })
+    StudentCourseEvent.create({
+      event_id: event.id,
+      student_course_id: params[:studentCourseId]
+    })
+
+    render json: {
+      'id': event.id,
+      'title': event.title,
+      'description': event.description,
+      'eventType': "course to do",
+      "startDate": self.convert_date_to_array(event.start_date),
+      "endDate": self.convert_date_to_array(event.end_date),
+      'color': event.color,
+      'studentCourseId': event.student_course_id,
+      'completed': event.completed
+    }
+  end
+
+  def complete_course_to_do
+    event = Event.find(params[:eventId])
+    event.completed = !event.completed
+    event.save
+
+    render json: {
+      'id': event.id,
+      'completed': event.completed
+    }
+  end
+
+
 
   def remove_course
     student_course = StudentCourse.find(params[:studentCourseId])
@@ -786,7 +898,7 @@ class Api::V1::StudentsController < ApplicationController
       end
     end
     params[:studentId] = student_id
-    self.student_courses
+    self.student_assignments
   end
 
 end
