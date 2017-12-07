@@ -748,15 +748,15 @@ class Api::V1::StudentsController < ApplicationController
   end
 
   def update_to_do
-    date = params[:date].split("/").map {|t| t.to_i }
+    date = params[:date].split("-").map {|t| t.to_i }
     time = params[:time].split(":").map {|t| t.to_i }
     event_type = params[:eventType]
-
+  
     event = Event.find(params[:id])
     event.title = params[:title]
     event.description = params[:description]
-    event.start_date = DateTime.new(date[2], date[0], date[1]).change({ hour: time[0], min: time[1] })
-    event.end_date = DateTime.new(date[2], date[0], date[1]).change({ hour: time[2], min: time[3] })
+    event.start_date = DateTime.new(date[0], date[1], date[2]).change({ hour: time[0], min: time[1] })
+    event.end_date = DateTime.new(date[0], date[1], date[2]).change({ hour: time[2], min: time[3] })
     event.save
 
     # "to do" > Assignment & Course & assignment.completed
@@ -790,7 +790,6 @@ class Api::V1::StudentsController < ApplicationController
       student_assignment_event = StudentAssignmentEvent.find_by(event_id: params[:id])
       student_assignment_event.delete
     else
-      byebug
       student_course_event = StudentCourseEvent.find_by(event_id: params[:id])
       student_course_event.delete
     end
