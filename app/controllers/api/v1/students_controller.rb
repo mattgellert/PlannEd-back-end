@@ -751,7 +751,7 @@ class Api::V1::StudentsController < ApplicationController
     date = params[:date].split("-").map {|t| t.to_i }
     time = params[:time].split(":").map {|t| t.to_i }
     event_type = params[:eventType]
-  
+
     event = Event.find(params[:id])
     event.title = params[:title]
     event.description = params[:description]
