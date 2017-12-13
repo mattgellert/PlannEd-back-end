@@ -10,6 +10,7 @@ class CreateStudentCourseComponents < ActiveRecord::Migration[5.1]
       t.string :pattern
       t.string :facility_descr
       t.string :facility_descr_short
+      t.string :color
 
       t.timestamps
     end

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20171127234749) do
+ActiveRecord::Schema.define(version: 20171203200212) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -42,12 +42,46 @@ ActiveRecord::Schema.define(version: 20171127234749) do
     t.datetime "updated_at", null: false
   end
 
+  create_table "events", force: :cascade do |t|
+    t.string "title"
+    t.string "description"
+    t.boolean "due_date", default: false
+    t.boolean "assignment_to_do", default: false
+    t.boolean "course_to_do", default: false
+    t.boolean "completed"
+    t.datetime "start_date"
+    t.datetime "end_date"
+    t.string "color"
+    t.integer "student_course_id"
+    t.integer "student_assignment_id"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+  end
+
   create_table "instructors", force: :cascade do |t|
     t.string "net_id"
     t.string "first_name"
     t.string "last_name"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+  end
+
+  create_table "stud_course_comp_events", force: :cascade do |t|
+    t.bigint "event_id"
+    t.bigint "student_course_component_id"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["event_id"], name: "index_stud_course_comp_events_on_event_id"
+    t.index ["student_course_component_id"], name: "index_stud_course_comp_events_on_student_course_component_id"
+  end
+
+  create_table "student_assignment_events", force: :cascade do |t|
+    t.bigint "event_id"
+    t.bigint "student_assignment_id"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["event_id"], name: "index_student_assignment_events_on_event_id"
+    t.index ["student_assignment_id"], name: "index_student_assignment_events_on_student_assignment_id"
   end
 
   create_table "student_assignments", force: :cascade do |t|
@@ -70,9 +104,19 @@ ActiveRecord::Schema.define(version: 20171127234749) do
     t.string "pattern"
     t.string "facility_descr"
     t.string "facility_descr_short"
+    t.string "color"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["student_course_id"], name: "index_student_course_components_on_student_course_id"
+  end
+
+  create_table "student_course_events", force: :cascade do |t|
+    t.bigint "event_id"
+    t.bigint "student_course_id"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["event_id"], name: "index_student_course_events_on_event_id"
+    t.index ["student_course_id"], name: "index_student_course_events_on_student_course_id"
   end
 
   create_table "student_course_instructors", force: :cascade do |t|
@@ -94,6 +138,7 @@ ActiveRecord::Schema.define(version: 20171127234749) do
     t.string "pattern"
     t.string "facility_descr"
     t.string "facility_descr_short"
+    t.string "color"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["course_id"], name: "index_student_courses_on_course_id"
@@ -109,9 +154,15 @@ ActiveRecord::Schema.define(version: 20171127234749) do
   end
 
   add_foreign_key "assignments", "courses"
+  add_foreign_key "stud_course_comp_events", "events"
+  add_foreign_key "stud_course_comp_events", "student_course_components"
+  add_foreign_key "student_assignment_events", "events"
+  add_foreign_key "student_assignment_events", "student_assignments"
   add_foreign_key "student_assignments", "assignments"
   add_foreign_key "student_assignments", "student_courses"
   add_foreign_key "student_course_components", "student_courses"
+  add_foreign_key "student_course_events", "events"
+  add_foreign_key "student_course_events", "student_courses"
   add_foreign_key "student_course_instructors", "instructors"
   add_foreign_key "student_course_instructors", "student_courses"
   add_foreign_key "student_courses", "courses"
