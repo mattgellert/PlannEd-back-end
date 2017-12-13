@@ -63,11 +63,26 @@ class Api::V1::StudentsController < ApplicationController
 
     #check for conflicts with each time slot
     conflicts = []
+    # time_slots.flatten.each do |slot|
+    #   if ((new_start > slot[:time_start]) && (new_start < slot[:time_end])) || ((new_end > slot[:time_start]) && (new_end < slot[:time_end]))
+    #     conflicts.push(slot[:title_short])
+    #   end
+    # end
+    includes = nil
     time_slots.flatten.each do |slot|
-      if ((new_start > slot[:time_start]) && (new_start < slot[:time_end])) || ((new_end > slot[:time_start]) && (new_end < slot[:time_end]))
-        conflicts.push(slot[:title_short])
+      slot[:pattern].split("").each do |day|
+        new_pattern.split("").each do |new_day|
+          if day == new_day
+            includes = true
+            break
+          end
+        end
+        if includes && ((new_start > slot[:time_start]) && (new_start < slot[:time_end])) || ((new_end > slot[:time_start]) && (new_end < slot[:time_end]))
+          conflicts.push(slot[:title_short])
+        end
       end
     end
+
     return conflicts
   end
 
@@ -542,6 +557,7 @@ class Api::V1::StudentsController < ApplicationController
     student_assignment.completed = !student_assignment.completed
     student_assignment.save
     if params[:isSubAssignment]
+      student_id = StudentCourse.find(student_assignment.student_course_id).student_id
       root_assignments = params[:rootAssignmentIds].map { |id| StudentAssignment.find(id) }
       sub_assignments = params[:subAssignmentIds].map { |id| StudentAssignment.find(id) }
       sub_assignments.push(student_assignment)
@@ -549,40 +565,57 @@ class Api::V1::StudentsController < ApplicationController
       all_assignments = [root_assignments, sub_assignments].flatten
       updated_due_date_events = self.update_due_dates_on_complete(all_assignments)
       toDos = self.update_to_do_on_complete(all_assignments)
+      if student_assignment.parent.sub_assignments.length > 0
+        self.complete_parent_assignment
+      end
       render json: {
         ids: ids,
         subAssignments: self.format_assignments_without_filter(sub_assignments),
         rootAssignments: self.format_assignments(root_assignments),
-        dueDates: updated_due_date_events,
-        toDos: toDos
+        dueDates: updated_due_date_events.map {|e| e.id },
+        dueDateEvents: updated_due_date_events,
+        toDos: toDos,
+        studentId: student_id
       }
     else
       updated_due_date_events = self.update_due_dates_on_complete([student_assignment])
       toDos = self.update_to_do_on_complete([student_assignment])
       render json: {
         studentAssignment: self.format_assignments([student_assignment])[0],
-        dueDates: updated_due_date_events,
+        dueDates: updated_due_date_events.map {|e| e.id },
+        dueDateEvents: updated_due_date_events,
         toDos: toDos
       }
     end
   end
 
   def update_due_dates_on_complete(student_assignments)
-    updated_event_ids = student_assignments.map do |assignment|
+    updated_event = student_assignments.map do |assignment|
       events = assignment.events.where(due_date: true).map do |event|
-        # event.completed = !event.completed
-        # event.save
-        this_event_id = event.id
+        event.completed = !event.completed
+        event.save
+        this_event = event
       end
     end
-    return updated_event_ids.flatten
+    return updated_event.flatten.uniq
   end
+  #
+  # def update_due_dates_on_complete(student_assignments)
+  #   updated_event_ids = student_assignments.map do |assignment|
+  #     events = assignment.events.where(due_date: true).map do |event|
+  #       event.completed = !event.completed
+  #       event.save
+  #       this_event_id = event.id
+  #     end
+  #   end
+  #   return updated_event_ids.flatten
+  # end
 
   def update_to_do_on_complete(student_assignments)
     updated_event_ids = student_assignments.map do |assignment|
       events = assignment.events.where(assignment_to_do: true).map do |event|
-        # event.completed = !event.completed
-        # event.save
+        event.completed = !event.completed
+        event.save
         this_event_id = event.id
       end
     end
@@ -598,11 +631,11 @@ class Api::V1::StudentsController < ApplicationController
     if parent_assignment.completed
       self.complete_children(parent_assignment)
       toDos = self.update_to_do_on_complete([parent_assignment])
-      render json: { ids: @@ids, completed: true, dueDates: self.update_due_dates_on_complete(@@all_assignments), toDos: toDos }
+      render json: { ids: @@ids, completed: true, dueDates: self.update_due_dates_on_complete(@@all_assignments).map{|e| e.id}, toDos: toDos }
     else
       self.incomplete_children(parent_assignment)
       toDos = self.update_to_do_on_complete([parent_assignment])
-      render json: { ids: @@ids, completed: false, dueDates: self.update_due_dates_on_complete(@@all_assignments), toDos: toDos }
+      render json: { ids: @@ids, completed: false, dueDates: self.update_due_dates_on_complete(@@all_assignments).map{|e| e.id}, toDos: toDos }
     end
 
   end
